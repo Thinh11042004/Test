@@ -26,6 +26,7 @@ import 'search/task_search_delegate.dart';
 // 👇 thêm: Pro demo
 import '../services/pro_manager.dart';
 import 'Pay/upgrade_pro_demo_screen.dart';
+import '../services/category_store.dart';
 
 enum SortOption {
   dueDate,
@@ -66,6 +67,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
   final TaskRepository _repo = DbService.tasks;
   final List<Task> _items = [];
   StreamSubscription<List<TaskEntity>>? _subscription;
+  final CategoryStore _categoryStore = CategoryStore.instance;
 
   // Map DB -> UI Task
   Task _fromEntity(TaskEntity e) {
@@ -83,10 +85,15 @@ class _TaskListScreenState extends State<TaskListScreen> {
       timeOfDay = TimeOfDay(hour: due.hour, minute: due.minute);
     }
 
+    final categoryId = e.categoryId;
+    final TaskCategory? category = _categoryFromId(categoryId);
+    final String? customCategoryId = category == null ? categoryId : null;
+
     return Task(
       id: (e.id ?? 0).toString(),
       title: e.title,
-      category: _categoryFromId(e.categoryId),
+      category: category ?? TaskCategory.none,
+      customCategoryId: customCategoryId,
       dueDate: due,
       timeOfDay: timeOfDay,
       reminderBefore: remindBefore,
@@ -94,12 +101,13 @@ class _TaskListScreenState extends State<TaskListScreen> {
       subtasks: const [],
       done: e.status == 'done',
       favorite: e.favorite,
+      notes: e.notes,
       createdAt: e.createdAt.toLocal(),
       updatedAt: e.updatedAt.toLocal(),
     );
   }
 
-  TaskCategory _categoryFromId(String? id) {
+  TaskCategory? _categoryFromId(String? id) {
     switch (id) {
       case 'work':
         return TaskCategory.work;
@@ -109,8 +117,10 @@ class _TaskListScreenState extends State<TaskListScreen> {
         return TaskCategory.favorites;
       case 'birthday':
         return TaskCategory.birthday;
-      default:
+      case 'none':
         return TaskCategory.none;
+      default:
+        return null;
     }
   }
 
@@ -151,13 +161,13 @@ class _TaskListScreenState extends State<TaskListScreen> {
     return TaskEntity(
       id: int.tryParse(t.id),
       title: t.title,
-      notes: null,
+      notes: t.notes,
       dueAt: due,
       remindAt:
           remindAtMs != null ? DateTime.fromMillisecondsSinceEpoch(remindAtMs) : null,
       status: t.done ? 'done' : 'todo',
       priority: 'normal',
-      categoryId: _categoryToId(t.category),
+      categoryId: t.customCategoryId ?? _categoryToId(t.category),
       tags: const [],
       favorite: t.favorite,
       createdAt: t.createdAt.toUtc(),
@@ -280,39 +290,47 @@ Future<void> _deleteTaskById(String? id) async {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (_) {
-        return Container(
-          margin: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(28),
-            gradient: LinearGradient(
-              colors: [
-                scheme.primaryContainer.withOpacity(.92),
-                scheme.secondaryContainer.withOpacity(.9),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: scheme.primary.withOpacity(.18),
-                blurRadius: 26,
-                offset: const Offset(0, 14),
+        return DraggableScrollableSheet(
+          initialChildSize: .4,
+          minChildSize: .32,
+          maxChildSize: .6,
+          expand: false,
+          builder: (context, controller) {
+            return Container(
+              margin: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(28),
+                gradient: LinearGradient(
+                  colors: [
+                    scheme.primaryContainer.withOpacity(.92),
+                    scheme.secondaryContainer.withOpacity(.9),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: scheme.primary.withOpacity(.18),
+                    blurRadius: 26,
+                    offset: const Offset(0, 14),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+              child: SafeArea(
+                child: SingleChildScrollView(
+                  controller: controller,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: scheme.primary.withOpacity(.18),
                         ),
@@ -350,7 +368,7 @@ Future<void> _deleteTaskById(String? id) async {
                     color: scheme.primary,
                     onTap: () {
                       Navigator.of(context).pop();
-                      _launchUri(Uri.parse('https://zalo.me/your-team'));
+                      _launchUri(Uri.parse('https://zalo.me/0372513965'));
                     },
                   ),
                   const SizedBox(height: 12),
@@ -368,17 +386,19 @@ Future<void> _deleteTaskById(String? id) async {
                   _ContactAction(
                     icon: Icons.phone_outlined,
                     label: 'Gọi đường dây nóng',
-                    subtitle: '1900 636 123',
+                    subtitle: '0372 513 965',
                     color: scheme.tertiary,
                     onTap: () {
                       Navigator.of(context).pop();
-                      _launchUri(Uri(scheme: 'tel', path: '1900636123'));
+                      _launchUri(Uri(scheme: 'tel', path: '0372513965'));
                     },
                   ),
-                ],
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
@@ -418,6 +438,32 @@ Future<void> _deleteTaskById(String? id) async {
     );
   }
 
+  Future<void> _createTaskForDate(DateTime date) async {
+    HapticFeedback.mediumImpact();
+    final initial = Task(
+      id: UniqueKey().toString(),
+      title: '',
+      category: TaskCategory.work,
+      dueDate: date,
+    );
+    final newTask = await showModalBottomSheet<Task>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => AddTaskSheet(initial: initial),
+    );
+    if (newTask == null) return;
+    await _addTask(newTask);
+    if (!mounted) return;
+    setState(() {});
+    _showStatusSnackBar(
+      'Đã tạo nhiệm vụ “${newTask.title}”',
+      icon: Icons.add_task,
+      iconColor: Theme.of(context).colorScheme.primary,
+    );
+  }
+
   PageRoute<T> _buildPageRoute<T>(Widget page) {
     return PageRouteBuilder<T>(
       transitionDuration: const Duration(milliseconds: 420),
@@ -440,15 +486,18 @@ Future<void> _deleteTaskById(String? id) async {
 
   // -------------------- UI state --------------------
   int _tabIndex = 1; // 0=Menu, 1=Nhiệm vụ, 2=Lịch, 3=Của tôi
-  TaskCategory? filter; // null = tất cả
+  TaskCategory? _filterCategory; // null = tất cả
+  String? _filterCustomId;
   SortOption _sort = SortOption.dueDate;
   bool _compact = false;
 
   List<Task> get _filtered {
     List<Task> list = List.of(_items);
-    if (filter != null) {
+    if (_filterCustomId != null) {
+      list = list.where((t) => t.customCategoryId == _filterCustomId).toList();
+    } else if (_filterCategory != null) {
       list = list.where((t) {
-        switch (filter!) {
+        switch (_filterCategory!) {
           case TaskCategory.work:
             return t.category == TaskCategory.work;
           case TaskCategory.personal:
@@ -516,6 +565,7 @@ Future<void> _deleteTaskById(String? id) async {
     if (widget.tasks.isNotEmpty) {
       _items.addAll(widget.tasks.map((task) => task.clone()));
     }
+    unawaited(_categoryStore.ensureLoaded());
     // Lắng nghe DB → cập nhật UI + đồng bộ notifications
     _subscription = _repo.watchAll().listen(
       (rows) {
@@ -581,9 +631,9 @@ Future<void> _deleteTaskById(String? id) async {
             key: ValueKey(_tabIndex),
           ),
         ),
-     actions: _tabIndex == 1
+        actions: _tabIndex == 1
             ? [
-                IconButton( 
+                IconButton(
                   tooltip: 'Liên hệ hỗ trợ',
                   icon: const Icon(Icons.support_agent),
                   onPressed: _showContactSheet,
@@ -714,13 +764,17 @@ Future<void> _deleteTaskById(String? id) async {
         );
         break;
       case _MenuAction.search:
-        showSearch(
+        final selected = await showSearch<Task?>(
           context: context,
-          delegate: TaskSearchDelegate(
-            _items,
-            onTapTask: (_) => Navigator.pop(context),
-          ),
+          delegate: TaskSearchDelegate(_items),
         );
+        if (selected != null) {
+          final task = _items.firstWhere(
+            (t) => t.id == selected.id,
+            orElse: () => selected,
+          );
+          await _openTaskDetail(task);
+        }
         break;
       case _MenuAction.sort:
         final picked = await _showSortDialog();
@@ -799,7 +853,11 @@ Future<void> _deleteTaskById(String? id) async {
           },
         );
       case 2:
-        return CalendarTab(tasks: _items);
+        return CalendarTab(
+          tasks: _items,
+          onOpenTask: _openTaskDetail,
+          onCreateForDate: _createTaskForDate,
+        );
       case 3:
         return MeTab(
           tasks: _items,
@@ -866,238 +924,283 @@ Future<void> _deleteTaskById(String? id) async {
     );
   }
 
+
   Widget _buildTasksView(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final list = _filtered;
-    final hasData = list.isNotEmpty;
-
- Widget chip({
-      required IconData icon,
-      required String label,
-      required bool selected,
-      required VoidCallback onTap,
-    }) {
-      final fg = selected ? scheme.onPrimary : scheme.onSurface;
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: RawChip(
-          avatar: Icon(icon, size: 18, color: fg),
-          label: Text(label),
-          labelStyle: TextStyle(color: fg, fontWeight: FontWeight.w600),
-          labelPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          showCheckmark: false,
-          clipBehavior: Clip.antiAlias,
-          elevation: 0,
-          pressElevation: 0,
-          shadowColor: Colors.transparent,
-          selected: selected,
-          selectedColor: scheme.primary,
-          backgroundColor: scheme.surfaceVariant.withOpacity(.55),
-          onSelected: (_) => onTap(),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-            side: BorderSide(
-              color: selected ? Colors.transparent : scheme.outline.withOpacity(.2),
-            ),
-          ),
-        ),
-      );
-    }
-
-    final chipBar = AnimatedOpacity(
-      duration: const Duration(milliseconds: 250),
-      opacity: hasData ? 1 : .35,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              scheme.primaryContainer.withOpacity(.85),
-              scheme.secondaryContainer.withOpacity(.85),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: scheme.primary.withOpacity(.12),
-              blurRadius: 24,
-              offset: const Offset(0, 12),
-            ),
-          ],
-        ),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          child: Row(
-            children: [
-              chip(
-                icon: Icons.all_inclusive,
-                label: 'Tất cả',
-                selected: filter == null,
-                onTap: () => setState(() => filter = null),
-              ),
-              chip(
-                icon: Icons.work_outline,
-                label: 'Công việc',
-                selected: filter == TaskCategory.work,
-                onTap: () => setState(() => filter = TaskCategory.work),
-              ),
-              chip(
-                icon: Icons.self_improvement,
-                label: 'Cá nhân',
-                selected: filter == TaskCategory.personal,
-                onTap: () => setState(() => filter = TaskCategory.personal),
-              ),
-              chip(
-                icon: Icons.star_rounded,
-                label: 'Yêu thích',
-                selected: filter == TaskCategory.favorites,
-                onTap: () => setState(() => filter = TaskCategory.favorites),
-              ),
-              chip(
-                icon: Icons.cake_outlined,
-                label: 'Sinh nhật',
-                selected: filter == TaskCategory.birthday,
-                onTap: () => setState(() => filter = TaskCategory.birthday),
-              ),
-              chip(
-                icon: Icons.inbox_outlined,
-                label: 'Khác',
-                selected: filter == TaskCategory.none,
-                onTap: () => setState(() => filter = TaskCategory.none),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
     final physics = const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics());
 
-    Future<void> handleDismiss(Task task) async {
-      setState(() {
-        _items.removeWhere((it) => it.id == task.id);
-      });
-      await _deleteTaskById(task.id);
-      if (!mounted) return;
-      _showStatusSnackBar(
-        'Đã xoá “${task.title}”',
-        icon: Icons.delete_outline,
-        iconColor: theme.colorScheme.error,
-      );
-    }
+    return ValueListenableBuilder<List<CategoryConfig>>(
+      valueListenable: _categoryStore.listenable,
+      builder: (context, categories, _) {
+        final list = _filtered;
+        final hasData = list.isNotEmpty;
 
-    Widget buildCard(Task t, Key key) {
-      return Dismissible(
-        key: key,
-        background: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: scheme.error.withOpacity(.14),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Icon(Icons.delete_outline, color: scheme.error.withOpacity(.8)),
-        ),
-        secondaryBackground: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: scheme.error.withOpacity(.14),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Icon(Icons.delete_outline, color: scheme.error.withOpacity(.8)),
-        ),
-        onDismissed: (_) => handleDismiss(t),
-        child: AnimatedSize(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOutCubic,
-          child: TaskItem(
-            compact: _compact,
-            task: t,
-            onToggleDone: () => _toggleTaskDone(t),
-            onOpenDetail: () => _openTaskDetail(t),
-            onToggleFavorite: () => _toggleFavorite(t),
-          ),
-        ),
-      );
-    }
-
-    final manualList = ReorderableListView.builder(
-      key: const PageStorageKey('manual-list'),
-      shrinkWrap: true,
-      padding: EdgeInsets.zero,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: list.length,
-      onReorder: (oldIndex, newIndex) {
-        if (filter != null) return;
-        setState(() {
-          if (newIndex > oldIndex) newIndex -= 1;
-          final item = _items.removeAt(oldIndex);
-          _items.insert(newIndex, item);
-        });
-      },
-      itemBuilder: (ctx, i) {
-        final t = list[i];
-        return buildCard(t, ValueKey('manual-${t.id}'));
-      },
-    );
-
-    final defaultList = ListView.builder(
-      key: ValueKey('list-${filter?.name ?? 'all'}-${_sort.name}-${_compact ? 'compact' : 'cozy'}'),
-      shrinkWrap: true,
-      padding: EdgeInsets.zero,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: list.length,
-      itemBuilder: (ctx, i) {
-        final t = list[i];
-        return buildCard(t, ValueKey('default-${t.id}'));
-      },
-    );
-
-    return CustomScrollView(
-      key: ValueKey('tasks-${filter?.name ?? 'all'}-${_sort.name}-${_items.length}-${hasData ? 'data' : 'empty'}'),
-      physics: physics,
-      slivers: [
-        SliverToBoxAdapter(child: _buildOverviewCard(context)),
-        SliverToBoxAdapter(child: chipBar),
-        if (hasData)
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(0, 8, 0, 140),
-            sliver: SliverToBoxAdapter(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 350),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                transitionBuilder: (child, animation) {
-                  final offsetAnimation = Tween<Offset>(
-                    begin: const Offset(0, .04),
-                    end: Offset.zero,
-                  ).animate(animation);
-                  return FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(position: offsetAnimation, child: child),
-                  );
-                },
-                child: _sort == SortOption.manual ? manualList : defaultList,
+        Widget chip({
+          required IconData icon,
+          required String label,
+          required bool selected,
+          required VoidCallback onTap,
+        }) {
+          final fg = selected ? scheme.onPrimary : scheme.onSurface;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: RawChip(
+              avatar: Icon(icon, size: 18, color: fg),
+              label: Text(label),
+              labelStyle: TextStyle(color: fg, fontWeight: FontWeight.w600),
+              labelPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              showCheckmark: false,
+              clipBehavior: Clip.antiAlias,
+              elevation: 0,
+              pressElevation: 0,
+              shadowColor: Colors.transparent,
+              selected: selected,
+              selectedColor: scheme.primary,
+              backgroundColor: scheme.surfaceVariant.withOpacity(.55),
+              onSelected: (_) => onTap(),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+                side: BorderSide(
+                  color: selected ? Colors.transparent : scheme.outline.withOpacity(.2),
+                ),
               ),
             ),
-          )
-        else
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: _emptyState(context),
+          );
+        }
+
+        IconData iconForConfig(CategoryConfig cfg) {
+          if (cfg.isSystem) {
+            switch (_categoryStore.resolveSystem(cfg.id)) {
+              case TaskCategory.work:
+                return Icons.work_outline;
+              case TaskCategory.personal:
+                return Icons.self_improvement;
+              case TaskCategory.favorites:
+                return Icons.star_rounded;
+              case TaskCategory.birthday:
+                return Icons.cake_outlined;
+              case TaskCategory.none:
+              case null:
+                return Icons.inbox_outlined;
+            }
+          }
+          return Icons.folder_outlined;
+        }
+
+        final visibleConfigs = categories.where((cfg) => cfg.visible).toList();
+
+        final chipBar = AnimatedOpacity(
+          duration: const Duration(milliseconds: 250),
+          opacity: hasData ? 1 : .35,
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  scheme.primaryContainer.withOpacity(.85),
+                  scheme.secondaryContainer.withOpacity(.85),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: scheme.primary.withOpacity(.12),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: [
+                  chip(
+                    icon: Icons.all_inclusive,
+                    label: 'Tất cả',
+                    selected: _filterCategory == null && _filterCustomId == null,
+                    onTap: () => setState(() {
+                      _filterCategory = null;
+                      _filterCustomId = null;
+                    }),
+                  ),
+                  for (final cfg in visibleConfigs)
+                    chip(
+                      icon: iconForConfig(cfg),
+                      label: cfg.label,
+                      selected: cfg.isSystem
+                          ? (_filterCategory != null &&
+                              _categoryStore.resolveSystem(cfg.id) == _filterCategory)
+                          : _filterCustomId == cfg.id,
+                      onTap: () => setState(() {
+                        if (cfg.isSystem) {
+                          _filterCustomId = null;
+                          _filterCategory = _categoryStore.resolveSystem(cfg.id);
+                        } else {
+                          _filterCategory = null;
+                          _filterCustomId = cfg.id;
+                        }
+                      }),
+                    ),
+                ],
+              ),
+            ),
           ),
-      ],
+        );
+
+        Future<void> handleDismiss(Task task) async {
+          setState(() {
+            _items.removeWhere((it) => it.id == task.id);
+          });
+          await _deleteTaskById(task.id);
+          if (!mounted) return;
+          _showStatusSnackBar(
+            'Đã xoá “${task.title}”',
+            icon: Icons.delete_outline,
+            iconColor: theme.colorScheme.error,
+          );
+        }
+
+        CategoryConfig? configForTask(Task task) {
+          if (task.customCategoryId != null) {
+            return categories.firstWhere(
+              (cfg) => cfg.id == task.customCategoryId,
+              orElse: () => CategoryConfig(
+                id: task.customCategoryId!,
+                label: 'Danh mục riêng',
+                color: Colors.teal.value,
+              ),
+            );
+          }
+          final sysId = _categoryStore.systemCategoryId(task.category);
+          if (sysId == null) return null;
+          return categories.firstWhere(
+            (cfg) => cfg.id == sysId,
+            orElse: () => CategoryConfig(
+              id: sysId,
+              label: categoryLabel(task.category),
+              color: scheme.secondary.value,
+              isSystem: true,
+            ),
+          );
+        }
+
+        Widget buildCard(Task t, Key key) {
+          final cfg = configForTask(t);
+          final catName = cfg?.label;
+          final catColor = cfg != null ? Color(cfg.color) : null;
+          return Dismissible(
+            key: key,
+            background: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: scheme.error.withOpacity(.14),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Icon(Icons.delete_outline, color: scheme.error.withOpacity(.8)),
+            ),
+            secondaryBackground: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: scheme.error.withOpacity(.14),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Icon(Icons.delete_outline, color: scheme.error.withOpacity(.8)),
+            ),
+            onDismissed: (_) => handleDismiss(t),
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOutCubic,
+              child: TaskItem(
+                compact: _compact,
+                task: t,
+                categoryName: catName,
+                categoryColor: catColor,
+                onToggleDone: () => _toggleTaskDone(t),
+                onOpenDetail: () => _openTaskDetail(t),
+                onToggleFavorite: () => _toggleFavorite(t),
+              ),
+            ),
+          );
+        }
+
+        final manualList = ReorderableListView.builder(
+          key: const PageStorageKey('manual-list'),
+          shrinkWrap: true,
+          padding: EdgeInsets.zero,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: list.length,
+          onReorder: (oldIndex, newIndex) {
+            if (_filterCategory != null || _filterCustomId != null) return;
+            setState(() {
+              if (newIndex > oldIndex) newIndex -= 1;
+              final item = _items.removeAt(oldIndex);
+              _items.insert(newIndex, item);
+            });
+          },
+          itemBuilder: (ctx, i) {
+            final t = list[i];
+            return buildCard(t, ValueKey('manual-${t.id}'));
+          },
+        );
+
+        final filterKey = _filterCustomId ?? _filterCategory?.name ?? 'all';
+        final defaultList = ListView.builder(
+          key: ValueKey('list-$filterKey-${_sort.name}-${_compact ? 'compact' : 'cozy'}'),
+          shrinkWrap: true,
+          padding: EdgeInsets.zero,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: list.length,
+          itemBuilder: (ctx, i) {
+            final t = list[i];
+            return buildCard(t, ValueKey('default-${t.id}'));
+          },
+        );
+
+        return CustomScrollView(
+          key: ValueKey('tasks-$filterKey-${_sort.name}-${_items.length}-${hasData ? 'data' : 'empty'}'),
+          physics: physics,
+          slivers: [
+            SliverToBoxAdapter(child: _buildOverviewCard(context)),
+            SliverToBoxAdapter(child: chipBar),
+            if (hasData)
+              SliverPadding(
+                padding: const EdgeInsets.only(bottom: 120),
+                sliver: SliverAnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) {
+                    final offsetAnimation = Tween<Offset>(
+                      begin: const Offset(0, .04),
+                      end: Offset.zero,
+                    ).animate(animation);
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(position: offsetAnimation, child: child),
+                    );
+                  },
+                  child: _sort == SortOption.manual ? manualList : defaultList,
+                ),
+              )
+            else
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _emptyState(context),
+              ),
+          ],
+        );
+      },
     );
   }
-
   Widget _buildOverviewCard(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
@@ -1216,7 +1319,7 @@ Future<void> _deleteTaskById(String? id) async {
   double? width,
   }) {
     final textTheme = Theme.of(context).textTheme;
-final gradient = LinearGradient(
+    final gradient = LinearGradient(
       colors: [
         color.withOpacity(.28),
         color.withOpacity(.12),
@@ -1425,3 +1528,4 @@ class _ContactAction extends StatelessWidget {
     );
   }
 }
+

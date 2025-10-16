@@ -2,22 +2,26 @@ import 'package:flutter/material.dart';
 import '../models/task.dart'; // nhớ import đúng đường dẫn đến model của bạn
 
 class TaskItem extends StatelessWidget {
-  const TaskItem({
+const TaskItem({
     super.key,
     required this.task,
+    required this.categoryName,
     required this.onToggleDone,
     required this.onOpenDetail,
     required this.onToggleFavorite,
     this.onEdit,
     this.compact = false,
+    this.categoryColor,
   });
 
   final Task task;
+  final String? categoryName;
   final VoidCallback onToggleDone;
   final VoidCallback onOpenDetail;
   final VoidCallback onToggleFavorite;
   final VoidCallback? onEdit;
   final bool compact;
+  final Color? categoryColor;
 
   @override
   Widget build(BuildContext context) {
@@ -58,8 +62,9 @@ class TaskItem extends StatelessWidget {
       }
     }
 
-    final String? category = (task.category == TaskCategory.none) ? null : categoryLabel(task.category);
-    final Duration? reminder = task.reminderBefore;
+        final String? category = categoryName?.isNotEmpty == true
+        ? categoryName
+        : (task.category == TaskCategory.none ? null : categoryLabel(task.category));    final Duration? reminder = task.reminderBefore;
 
     final chips = <Widget>[];
     if (dueLabel != null) {
@@ -70,8 +75,12 @@ class TaskItem extends StatelessWidget {
       ));
     }
     if (category != null && category.isNotEmpty) {
-      chips.add(_MetaChip(label: category, icon: Icons.folder_open, color: scheme.secondary));
-    }
+      chips.add(_MetaChip(
+              label: category,
+              icon: Icons.folder_open,
+              color: categoryColor ?? scheme.secondary,
+            ));   
+     }
     if (reminder != null) {
       chips.add(_MetaChip(
         label: 'Nhắc trước ${_humanizeDuration(reminder)}',
@@ -80,8 +89,92 @@ class TaskItem extends StatelessWidget {
       ));
     }
 
-    final gradientStart = task.done ? scheme.surface : scheme.primaryContainer.withOpacity(.9);
-    final gradientEnd = scheme.surface;
+    final gradientStart = task.done
+        ? scheme.surfaceVariant
+        : scheme.primary.withOpacity(.92);
+    final gradientEnd = task.done
+        ? scheme.surface
+        : scheme.tertiaryContainer.withOpacity(.85);
+
+   if (compact) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        child: Material(
+          color: scheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          elevation: 0,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: onOpenDetail,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  InkResponse(
+                    onTap: onToggleDone,
+                    radius: 20,
+                    child: Icon(
+                      task.done ? Icons.check_circle : Icons.radio_button_unchecked,
+                      color: task.done ? scheme.primary : scheme.outline,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          task.title,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            decoration: task.done ? TextDecoration.lineThrough : null,
+                            color: task.done
+                                ? theme.textTheme.bodyLarge?.color?.withOpacity(.6)
+                                : theme.textTheme.bodyLarge?.color,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (dueLabel != null || category != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Row(
+                              children: [
+                                if (dueLabel != null)
+                                  _CompactMeta(
+                                    icon: isOverdue ? Icons.error_outline : Icons.calendar_today,
+                                    label: dueLabel,
+                                    color: isOverdue ? scheme.error : scheme.primary,
+                                  ),
+                                if (category != null) ...[
+                                  if (dueLabel != null) const SizedBox(width: 8),
+                                  _CompactMeta(
+                                    icon: Icons.folder_open,
+                                    label: category,
+                                    color: categoryColor ?? scheme.secondary,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    tooltip: task.favorite ? 'Bỏ yêu thích' : 'Yêu thích',
+                    icon: Icon(task.favorite ? Icons.star : Icons.star_border),
+                    onPressed: onToggleFavorite,
+                    color: task.favorite ? Colors.amber : scheme.outline,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
@@ -114,7 +207,7 @@ class TaskItem extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                     gradient: LinearGradient(
                       colors: task.done
-                          ? [scheme.surfaceVariant, scheme.surface]
+                          ? [gradientStart, gradientEnd]
                           : [gradientStart, gradientEnd],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -122,9 +215,9 @@ class TaskItem extends StatelessWidget {
                     boxShadow: [
                       if (!task.done)
                         BoxShadow(
-                          color: scheme.primary.withOpacity(.12),
-                          blurRadius: 14,
-                          offset: const Offset(0, 8),
+                          color: scheme.primary.withOpacity(.18),
+                          blurRadius: 16,
+                          offset: const Offset(0, 10),
                         ),
                     ],
                     border: task.favorite
@@ -258,6 +351,32 @@ class _MetaChip extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CompactMeta extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _CompactMeta({required this.icon, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            label,
+            style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }

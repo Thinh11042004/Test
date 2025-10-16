@@ -14,6 +14,7 @@ class Task {
   String id;
   String title;
   TaskCategory category;
+  String? customCategoryId;
   DateTime? dueDate;
   TimeOfDay? timeOfDay;
   Duration? reminderBefore; // ví dụ: 5 phút trước
@@ -22,6 +23,7 @@ class Task {
   bool favorite;
   List<SubTask> subtasks;
   List<String> tags;
+  String? notes;
   DateTime createdAt;
   DateTime updatedAt;
 
@@ -29,6 +31,7 @@ class Task {
     required this.id,
     required this.title,
     this.category = TaskCategory.work,
+    this.customCategoryId,
     this.dueDate,
     this.timeOfDay,
     this.reminderBefore,
@@ -37,6 +40,7 @@ class Task {
     this.favorite = false,
     List<SubTask>? subtasks,
     List<String>? tags,
+    this.notes,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : subtasks = (subtasks ?? []).map((s) => SubTask(title: s.title, done: s.done)).toList(),
@@ -44,10 +48,11 @@ class Task {
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? createdAt ?? DateTime.now();
 
-  Task copyWith({
+    Task copyWith({
     String? id,
     String? title,
     TaskCategory? category,
+    String? customCategoryId,
     DateTime? dueDate,
     TimeOfDay? timeOfDay,
     Duration? reminderBefore,
@@ -56,6 +61,7 @@ class Task {
     bool? favorite,
     List<SubTask>? subtasks,
     List<String>? tags,
+    String? notes,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -63,6 +69,7 @@ class Task {
       id: id ?? this.id,
       title: title ?? this.title,
       category: category ?? this.category,
+      customCategoryId: customCategoryId ?? this.customCategoryId,
       dueDate: dueDate ?? this.dueDate,
       timeOfDay: timeOfDay ?? this.timeOfDay,
       reminderBefore: reminderBefore ?? this.reminderBefore,
@@ -73,6 +80,7 @@ class Task {
           .map((s) => SubTask(title: s.title, done: s.done))
           .toList(),
       tags: List<String>.from(tags ?? this.tags),
+      notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

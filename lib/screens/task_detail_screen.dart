@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../models/task.dart';
+import '../services/category_store.dart';
 
 class TaskDetailScreen extends StatefulWidget {
   const TaskDetailScreen({super.key, required this.task});
@@ -33,18 +36,19 @@ class TaskDetailScreen extends StatefulWidget {
 class _TaskDetailScreenState extends State<TaskDetailScreen> {
   late Task task;
   final _noteCtl = TextEditingController();
+  final CategoryStore _categoryStore = CategoryStore.instance;
 
   @override
   void initState() {
     super.initState();
     task = widget.task.clone();
+    _noteCtl.text = task.notes ?? '';
+    unawaited(_categoryStore.ensureLoaded());
   }
 
   @override
   void dispose() {
     _noteCtl.dispose();
-    super.dispose();
-  }
 
   // —— pickers tái dùng ——
   Future<void> _pickDate() async {
@@ -182,41 +186,36 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      backgroundColor: scheme.surface,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          // Quay lại danh sách và loại bỏ toàn bộ stack
-          onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false),
+    final categories = _categoryStore.current;
+    final categoryLabel = resolveCategoryLabel(task, categories);
+
+    return WillPopScope(
+      onWillPop: () async {
+        await _finishEditing();
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: scheme.surface,
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: _finishEditing,
+          ),
+          title: const Text('Chi tiết nhiệm vụ'),
+          actions: [
+            TextButton(onPressed: _finishEditing, child: const Text('LƯU')),
+          ],
         ),
-        title: const Text(''),
-        actions: [
-          PopupMenuButton(
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'delete', child: Text('Xoá')),
-              PopupMenuItem(value: 'share', child: Text('Chia sẻ')),
-            ],
-          )
-        ],
-      ),
-      body: ListView(
+        body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           // Category chip
           Align(
             alignment: Alignment.centerLeft,
-            child: PopupMenuButton<TaskCategory>(
-              initialValue: task.category,
-              onSelected: (v) => setState(() => task.category = v),
-              itemBuilder: (ctx) => TaskCategory.values
-                  .map((c) => PopupMenuItem(value: c, child: Text(categoryLabel(c))))
-                  .toList(),
-              child: Chip(
-                label: Text(categoryLabel(task.category)),
-                backgroundColor: scheme.secondaryContainer,
-                labelStyle: TextStyle(color: scheme.onSecondaryContainer),
-              ),
+            child: ActionChip(
+              avatar: const Icon(Icons.folder_outlined),
+              label: Text(categoryLabel),
+              onPressed: _pickCategory,
             ),
           ),
           const SizedBox(height: 8),
@@ -302,7 +301,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ListTile(
             leading: const Icon(Icons.notes_outlined),
             title: const Text('Ghi chú'),
-            trailing: _pill(_noteCtl.text.isEmpty ? 'THÊM' : 'SỬA'),
+            subtitle: task.notes == null || task.notes!.isEmpty
+                ? const Text('Chạm để thêm ghi chú')
+                : Text(task.notes!),
             onTap: () async {
               final text = await showDialog<String>(
                 context: context,
@@ -319,7 +320,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   ],
                 ),
               );
-              if (text != null) setState(() {});
+              if (text != null) {
+                setState(() {
+                  _noteCtl.text = text;
+                  task.notes = text.trim().isEmpty ? null : text.trim();
+                });
+              }
             },
           ),
 
@@ -335,7 +341,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  // Tag tròn viền như ảnh 2
+  // Tag tròn viền như ảnh 2␊
   Widget _pill(String text) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
@@ -349,3 +355,96 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 }
+
+
+void _applyNote() {
+    task.notes = _noteCtl.text.trim().isEmpty ? null : _noteCtl.text.trim();
+  }
+
+  Future<void> _finishEditing() async {
+    _applyNote();
+    Navigator.pop(context, task);
+  }
+
+  Future<void> _pickCategory() async {
+    await _categoryStore.ensureLoaded();
+    final configs = _categoryStore.current;
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Text('Chọn danh mục', style: Theme.of(context).textTheme.titleMedium),
+            const Divider(),
+            for (final cfg in configs)
+              ListTile(
+                leading: Icon(
+                  cfg.isSystem
+                      ? (_categoryStore.resolveSystem(cfg.id) == TaskCategory.work
+                          ? Icons.work_outline
+                          : _categoryStore.resolveSystem(cfg.id) == TaskCategory.personal
+                              ? Icons.self_improvement
+                              : _categoryStore.resolveSystem(cfg.id) == TaskCategory.favorites
+                                  ? Icons.star_rounded
+                                  : _categoryStore.resolveSystem(cfg.id) == TaskCategory.birthday
+                                      ? Icons.cake_outlined
+                                      : Icons.folder_outlined)
+                      : Icons.folder_outlined,
+                  color: Color(cfg.color),
+                ),
+                title: Text(cfg.label),
+                onTap: () => Navigator.pop(context, cfg.id),
+              ),
+            ListTile(
+              leading: const Icon(Icons.add),
+              title: const Text('Tạo danh mục mới'),
+              onTap: () async {
+                final name = await _promptForNewCategory();
+                if (name != null && name.isNotEmpty) {
+                  await _categoryStore.createCustom(name: name);
+                  Navigator.pop(context, _categoryStore.current.last.id);
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted || result == null) return;
+    final system = _categoryStore.resolveSystem(result);
+    setState(() {
+      if (system != null) {
+        task
+          ..category = system
+          ..customCategoryId = null;
+      } else {
+        task
+          ..category = TaskCategory.none
+          ..customCategoryId = result;
+      }
+    });
+  }
+
+  Future<String?> _promptForNewCategory() async {
+    final ctl = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Danh mục mới'),
+        content: TextField(
+          controller: ctl,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'Tên danh mục'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('HUỶ')),
+          FilledButton(onPressed: () => Navigator.pop(context, ctl.text.trim()), child: const Text('TẠO')),
+        ],
+      ),
+    );
+  }
