@@ -80,7 +80,7 @@ class TaskItem extends StatelessWidget {
       ));
     }
 
-    final gradientStart = task.done ? scheme.surfaceVariant : scheme.primaryContainer.withOpacity(.75);
+    final gradientStart = task.done ? scheme.surface : scheme.primaryContainer.withOpacity(.9);
     final gradientEnd = scheme.surface;
 
     return TweenAnimationBuilder<double>(
@@ -240,8 +240,9 @@ class _MetaChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(.12),
+        color: color.withOpacity(.16),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(.35)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

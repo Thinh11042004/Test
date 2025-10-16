@@ -312,6 +312,7 @@ Future<void> _deleteTaskById(String? id) async {
   Future<T?> _pushPage<T>(Widget page) {
     return Navigator.of(context).push<T>(_buildPageRoute(page));
   }
+
   // -------------------- UI state --------------------
   int _tabIndex = 1; // 0=Menu, 1=Nhiệm vụ, 2=Lịch, 3=Của tôi
   TaskCategory? filter; // null = tất cả
@@ -387,23 +388,31 @@ Future<void> _deleteTaskById(String? id) async {
   @override
   void initState() {
     super.initState();
+    if (widget.tasks.isNotEmpty) {
+      _items.addAll(widget.tasks.map((task) => task.clone()));
+    }
     // Lắng nghe DB → cập nhật UI + đồng bộ notifications
-    _subscription = _repo.watchAll().listen((rows) {
-      setState(() {
-        _items
-          ..clear()
-          ..addAll(rows.map(_fromEntity));
-      });
+    _subscription = _repo.watchAll().listen(
+      (rows) {
+        setState(() {
+          _items
+            ..clear()
+            ..addAll(rows.map(_fromEntity));
+        });
 
-      for (final entity in rows) {
-        if (entity.id == null) continue;
-        if (entity.status == 'done') {
-          unawaited(NotificationService.instance.cancelReminder(entity.id));
-        } else {
-          unawaited(NotificationService.instance.scheduleForTask(entity));
+        for (final entity in rows) {
+          if (entity.id == null) continue;
+          if (entity.status == 'done') {
+            unawaited(NotificationService.instance.cancelReminder(entity.id));
+          } else {
+            unawaited(NotificationService.instance.scheduleForTask(entity));
+          }
         }
-      }
-    });
+      },
+      onError: (Object error, StackTrace stack) {
+        debugPrint('Lỗi khi đồng bộ nhiệm vụ: $error');
+      },
+    );
   }
 
   @override
@@ -412,32 +421,23 @@ Future<void> _deleteTaskById(String? id) async {
     super.dispose();
   }
 
-@override
+  @override
   Widget build(BuildContext context) {
     final titles = ['Menu', 'Nhiệm vụ', 'Lịch', 'Của tôi'];
     final view = _buildTabView(context);
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final gradients = [
-      [scheme.secondaryContainer.withOpacity(.6), scheme.surface],
-      [scheme.primaryContainer.withOpacity(.6), scheme.surface],
-      [scheme.tertiaryContainer.withOpacity(.6), scheme.surface],
+      [scheme.secondaryContainer.withOpacity(.55), scheme.surface],
+      [scheme.primaryContainer.withOpacity(.55), scheme.surface],
+      [scheme.tertiaryContainer.withOpacity(.55), scheme.surface],
       [scheme.surfaceTint.withOpacity(.35), scheme.surface],
     ];
     final gradient = gradients[_tabIndex.clamp(0, gradients.length - 1)];
+    final useGradient = _tabIndex == 1;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeOutCubic,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: gradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
+    final scaffold = Scaffold(
+      backgroundColor: useGradient ? Colors.transparent : theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: AnimatedSwitcher(
           duration: const Duration(milliseconds: 250),
@@ -458,23 +458,25 @@ Future<void> _deleteTaskById(String? id) async {
         ),
         actions: _tabIndex == 1 ? [_buildMoreMenu()] : null,
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 400),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        transitionBuilder: (child, animation) {
-          final offsetAnimation = Tween<Offset>(
-            begin: const Offset(.02, .04),
-            end: Offset.zero,
-          ).animate(animation);
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(position: offsetAnimation, child: child),
-          );
-        },
-        child: KeyedSubtree(
-          key: ValueKey('tab-$_tabIndex'),
-          child: view,
+      body: SafeArea(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 400),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) {
+            final offsetAnimation = Tween<Offset>(
+              begin: const Offset(.02, .04),
+              end: Offset.zero,
+            ).animate(animation);
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(position: offsetAnimation, child: child),
+            );
+          },
+          child: KeyedSubtree(
+            key: ValueKey('tab-$_tabIndex'),
+            child: view,
+          ),
         ),
       ),
       floatingActionButton: AnimatedSwitcher(
@@ -493,10 +495,6 @@ Future<void> _deleteTaskById(String? id) async {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       bottomNavigationBar: NavigationBar(
-        backgroundColor: theme.colorScheme.surface.withOpacity(.85),
-        indicatorColor: theme.colorScheme.primary.withOpacity(.15),
-        surfaceTintColor: Colors.transparent,
-        shadowColor: Colors.transparent,
         height: 68,
         selectedIndex: _tabIndex,
         onDestinationSelected: (i) => setState(() => _tabIndex = i),
@@ -514,7 +512,24 @@ Future<void> _deleteTaskById(String? id) async {
           ),
         ],
       ),
-    ));
+    );
+
+    if (!useGradient) {
+      return scaffold;
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: gradient,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: scaffold,
+    );
   }
   PopupMenuButton<_MenuAction> _buildMoreMenu() {
     return PopupMenuButton<_MenuAction>(
@@ -584,11 +599,8 @@ Future<void> _deleteTaskById(String? id) async {
         setState(() => _compact = !_compact);
         break;
       case _MenuAction.upgradePro:
-        await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const UpgradeProDemoScreen()),
-        );
-        setState(() {});
+        await _pushPage(const UpgradeProDemoScreen());
+        if (mounted) setState(() {});
         break;
     }
   }
@@ -646,14 +658,22 @@ Future<void> _deleteTaskById(String? id) async {
           onOpenCategories: () => _pushPage(
             CategoryManagerScreen(tasks: _items),
           ),
-          onUpgradePro: () => _pushPage(const UpgradeProDemoScreen()),
+          onUpgradePro: () {
+            _pushPage(const UpgradeProDemoScreen()).then((_) {
+              if (mounted) setState(() {});
+            });
+          },
         );
       case 2:
         return CalendarTab(tasks: _items);
       case 3:
         return MeTab(
           tasks: _items,
-          onUpgrade: () => _pushPage(const UpgradeProDemoScreen()),
+          onUpgrade: () {
+            _pushPage(const UpgradeProDemoScreen()).then((_) {
+              if (mounted) setState(() {});
+            });
+          },
         );
       default:
         return _buildTasksView(context);
@@ -758,7 +778,7 @@ Future<void> _deleteTaskById(String? id) async {
         margin: const EdgeInsets.fromLTRB(16, 4, 16, 12),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         decoration: BoxDecoration(
-          color: scheme.surface.withOpacity(.78),
+          color: scheme.surface.withOpacity(.9),
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
@@ -928,6 +948,7 @@ Future<void> _deleteTaskById(String? id) async {
             },
           );
 
+
     return KeyedSubtree(
       key: ValueKey('tasks-${filter?.name ?? 'all'}-${_sort.name}-${_items.length}'),
       child: Column(
@@ -952,7 +973,18 @@ Future<void> _deleteTaskById(String? id) async {
               },
               child: hasData
                   ? listView
-                  : KeyedSubtree(key: const ValueKey('empty'), child: _emptyState(context)),
+                  : KeyedSubtree(
+                      key: const ValueKey('empty'),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) => SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                            child: _emptyState(context),
+                          ),
+                        ),
+                      ),
+                    ),
             ),
           ),
         ],
@@ -984,7 +1016,7 @@ Future<void> _deleteTaskById(String? id) async {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              scheme.primaryContainer.withOpacity(.85),
+              scheme.primaryContainer.withOpacity(.75),
               scheme.surface,
             ],
             begin: Alignment.topLeft,
@@ -1115,6 +1147,7 @@ Future<void> _deleteTaskById(String? id) async {
 
     return width == null ? card : SizedBox(width: width, child: card);
   }
+
   Task? _nextDueTask() {
     final now = DateTime.now();
     final upcoming = _items.where((t) {

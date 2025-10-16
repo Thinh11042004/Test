@@ -25,8 +25,11 @@ class _CategoryManagerScreenState extends State<CategoryManagerScreen> {
       for (final name in _custom) _row(name, 0, custom: true),
     ];
 
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: scheme.surface,
       appBar: AppBar(
         title: const Text('Quản lý Danh mục'),
         leading: IconButton(
@@ -38,15 +41,24 @@ class _CategoryManagerScreenState extends State<CategoryManagerScreen> {
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            color: Theme.of(context).colorScheme.primaryContainer.withOpacity(.4),
-            child: const Text('Các danh mục hiển thị trên trang chủ'),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [scheme.primary.withOpacity(.8), scheme.secondary.withOpacity(.7)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+            ),
+            child: Text(
+              'Các danh mục hiển thị trên trang chủ',
+              style: theme.textTheme.titleMedium?.copyWith(color: scheme.onPrimary, fontWeight: FontWeight.w700),
+            ),
           ),
           ...rows,
           const SizedBox(height: 8),
           ListTile(
-            leading: const Icon(Icons.add, color: Colors.blue),
-            title: const Text('Tạo mới', style: TextStyle(color: Colors.blue)),
+            leading: Icon(Icons.add, color: scheme.primary),
+            title: Text('Tạo mới', style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w600)),
             onTap: _createCategory,
           ),
           const SizedBox(height: 16),
@@ -58,7 +70,7 @@ class _CategoryManagerScreenState extends State<CategoryManagerScreen> {
 
   Widget _row(String name, int count, {bool custom = false}) {
     return ListTile(
-      leading: const Icon(Icons.circle, size: 12, color: Colors.blue),
+      leading: Icon(Icons.circle, size: 12, color: Theme.of(context).colorScheme.primary),
       title: Text(name),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,

@@ -40,15 +40,16 @@ class ToDoApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const seed = Color(0xFF6750A4);
+    const seed = Color(0xFF5260FF);
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'ToDo Demo',
+      themeMode: ThemeMode.light,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.light),
-        scaffoldBackgroundColor: const Color(0xFFF4F0FF),
+        scaffoldBackgroundColor: const Color(0xFFF8F7FF),
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.transparent,
           foregroundColor: Colors.black87,
@@ -56,13 +57,13 @@ class ToDoApp extends StatelessWidget {
           elevation: 0,
         ),
         cardTheme: CardThemeData(
-          color: Colors.white.withOpacity(.92),
+          color: Colors.white.withOpacity(.96),
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         ),
         chipTheme: ChipThemeData(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          backgroundColor: seed.withOpacity(.12),
+          backgroundColor: seed.withOpacity(.14),
           selectedColor: seed,
         ),
         floatingActionButtonTheme: const FloatingActionButtonThemeData(
@@ -72,8 +73,8 @@ class ToDoApp extends StatelessWidget {
           shape: StadiumBorder(),
         ),
         navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: Colors.white.withOpacity(.9),
-          indicatorColor: seed.withOpacity(.18),
+          backgroundColor: Colors.white.withOpacity(.95),
+          indicatorColor: seed.withOpacity(.16),
           surfaceTintColor: Colors.transparent,
           shadowColor: Colors.transparent,
         ),
@@ -90,14 +91,14 @@ class ToDoApp extends StatelessWidget {
       darkTheme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.dark),
-        scaffoldBackgroundColor: const Color(0xFF1E1B2C),
+        scaffoldBackgroundColor: const Color(0xFF282347),
         floatingActionButtonTheme: const FloatingActionButtonThemeData(
           backgroundColor: seed,
           foregroundColor: Colors.white,
         ),
         navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: const Color(0xFF27233A),
-          indicatorColor: seed.withOpacity(.28),
+          backgroundColor: const Color(0xFF322D57),
+          indicatorColor: seed.withOpacity(.24),
           surfaceTintColor: Colors.transparent,
           shadowColor: Colors.transparent,
         ),
