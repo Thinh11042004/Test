@@ -178,11 +178,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         RepeatRule.monthly => 'Hằng tháng',
       };
 
-  @override
+@override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
+      backgroundColor: scheme.surface,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),

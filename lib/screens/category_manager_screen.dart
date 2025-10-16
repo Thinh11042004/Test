@@ -26,6 +26,7 @@ class _CategoryManagerScreenState extends State<CategoryManagerScreen> {
     ];
 
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Quản lý Danh mục'),
         leading: IconButton(

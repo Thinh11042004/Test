@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/task.dart';
 import '../widgets/task_item.dart';
@@ -91,7 +92,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
       repeat: RepeatRule.none,
       subtasks: const [],
       done: e.status == 'done',
-      favorite: false,
+      favorite: e.favorite,
       createdAt: e.createdAt.toLocal(),
       updatedAt: e.updatedAt.toLocal(),
     );
@@ -157,6 +158,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
       priority: 'normal',
       categoryId: _categoryToId(t.category),
       tags: const [],
+      favorite: t.favorite,
       createdAt: t.createdAt.toUtc(),
       updatedAt: t.updatedAt.toUtc(),
     );
@@ -204,7 +206,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
     }
   }
 
-  Future<void> _deleteTaskById(String? id) async {
+Future<void> _deleteTaskById(String? id) async {
     final intId = int.tryParse(id ?? '');
     if (intId != null) {
       await _repo.delete(intId);
@@ -212,6 +214,104 @@ class _TaskListScreenState extends State<TaskListScreen> {
     }
   }
 
+  void _showStatusSnackBar(String message, {IconData? icon, Color? iconColor}) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    final scheme = Theme.of(context).colorScheme;
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        backgroundColor: scheme.surface.withOpacity(.95),
+        elevation: 3,
+        content: Row(
+          children: [
+            if (icon != null) ...[
+              Icon(icon, color: iconColor ?? scheme.primary),
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(
+                  color: scheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        duration: const Duration(milliseconds: 2200),
+      ),
+    );
+  }
+
+  void _toggleTaskDone(Task task) {
+    final next = !task.done;
+    setState(() => task.done = next);
+    HapticFeedback.selectionClick();
+    unawaited(_updateTask(task));
+    _showStatusSnackBar(
+      next ? 'Đã hoàn thành “${task.title}”' : 'Đã mở lại “${task.title}”',
+      icon: next ? Icons.check_circle : Icons.restart_alt,
+      iconColor: next ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.secondary,
+    );
+  }
+
+  void _toggleFavorite(Task task) {
+    final next = !task.favorite;
+    setState(() => task.favorite = next);
+    HapticFeedback.lightImpact();
+    unawaited(_updateTask(task));
+    _showStatusSnackBar(
+      next
+          ? 'Đã thêm “${task.title}” vào yêu thích'
+          : 'Đã xoá “${task.title}” khỏi yêu thích',
+      icon: next ? Icons.star : Icons.star_border,
+      iconColor: next ? Colors.amber : Theme.of(context).colorScheme.outline,
+    );
+  }
+
+  Future<void> _createTask() async {
+    HapticFeedback.mediumImpact();
+    final newTask = await showModalBottomSheet<Task>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => const AddTaskSheet(),
+    );
+    if (newTask == null) return;
+    await _addTask(newTask);
+    if (!mounted) return;
+    setState(() {});
+    _showStatusSnackBar(
+      'Đã tạo nhiệm vụ “${newTask.title}”',
+      icon: Icons.add_task,
+      iconColor: Theme.of(context).colorScheme.primary,
+    );
+  }
+
+  PageRoute<T> _buildPageRoute<T>(Widget page) {
+    return PageRouteBuilder<T>(
+      transitionDuration: const Duration(milliseconds: 420),
+      reverseTransitionDuration: const Duration(milliseconds: 320),
+      pageBuilder: (_, __, ___) => page,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+        final offset = Tween<Offset>(begin: const Offset(0, .06), end: Offset.zero).animate(curved);
+        return FadeTransition(
+          opacity: curved,
+          child: SlideTransition(position: offset, child: child),
+        );
+      },
+    );
+  }
+
+  Future<T?> _pushPage<T>(Widget page) {
+    return Navigator.of(context).push<T>(_buildPageRoute(page));
+  }
   // -------------------- UI state --------------------
   int _tabIndex = 1; // 0=Menu, 1=Nhiệm vụ, 2=Lịch, 3=Của tôi
   TaskCategory? filter; // null = tất cả
@@ -221,15 +321,20 @@ class _TaskListScreenState extends State<TaskListScreen> {
   List<Task> get _filtered {
     List<Task> list = List.of(_items);
     if (filter != null) {
-      list = list
-          .where(
-            (t) =>
-                (filter == TaskCategory.work &&
-                    t.category == TaskCategory.work) ||
-                (filter == TaskCategory.personal &&
-                    t.category == TaskCategory.personal),
-          )
-          .toList();
+      list = list.where((t) {
+        switch (filter!) {
+          case TaskCategory.work:
+            return t.category == TaskCategory.work;
+          case TaskCategory.personal:
+            return t.category == TaskCategory.personal;
+          case TaskCategory.favorites:
+            return t.favorite || t.category == TaskCategory.favorites;
+          case TaskCategory.birthday:
+            return t.category == TaskCategory.birthday;
+          case TaskCategory.none:
+            return t.category == TaskCategory.none;
+        }
+      }).toList();
     }
     switch (_sort) {
       case SortOption.dueDate:
@@ -307,11 +412,32 @@ class _TaskListScreenState extends State<TaskListScreen> {
     super.dispose();
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
     final titles = ['Menu', 'Nhiệm vụ', 'Lịch', 'Của tôi'];
     final view = _buildTabView(context);
-    return Scaffold(
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final gradients = [
+      [scheme.secondaryContainer.withOpacity(.6), scheme.surface],
+      [scheme.primaryContainer.withOpacity(.6), scheme.surface],
+      [scheme.tertiaryContainer.withOpacity(.6), scheme.surface],
+      [scheme.surfaceTint.withOpacity(.35), scheme.surface],
+    ];
+    final gradient = gradients[_tabIndex.clamp(0, gradients.length - 1)];
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: gradient,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: AnimatedSwitcher(
           duration: const Duration(milliseconds: 250),
@@ -360,26 +486,21 @@ class _TaskListScreenState extends State<TaskListScreen> {
         child: _tabIndex == 1
             ? FloatingActionButton(
                 key: const ValueKey('fab'),
-                onPressed: () async {
-                  final newTask = await showModalBottomSheet<Task>(
-                    context: context,
-                    isScrollControlled: true,
-                    useSafeArea: true,
-                    showDragHandle: true,
-                    builder: (_) => const AddTaskSheet(),
-                  );
-                  if (newTask != null) {
-                    await _addTask(newTask);
-                    setState(() {});
-                  }
-                },
+                onPressed: _createTask,
                 child: const Icon(Icons.add),
               )
             : const SizedBox.shrink(),
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       bottomNavigationBar: NavigationBar(
+        backgroundColor: theme.colorScheme.surface.withOpacity(.85),
+        indicatorColor: theme.colorScheme.primary.withOpacity(.15),
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        height: 68,
         selectedIndex: _tabIndex,
         onDestinationSelected: (i) => setState(() => _tabIndex = i),
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         destinations: const [
           NavigationDestination(icon: Icon(Icons.menu), label: 'Menu'),
           NavigationDestination(icon: Icon(Icons.checklist), label: 'Nhiệm vụ'),
@@ -393,9 +514,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
-
   PopupMenuButton<_MenuAction> _buildMoreMenu() {
     return PopupMenuButton<_MenuAction>(
       icon: const Icon(Icons.more_vert),
@@ -523,26 +643,17 @@ class _TaskListScreenState extends State<TaskListScreen> {
     switch (_tabIndex) {
       case 0:
         return MenuTab(
-          onOpenCategories: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => CategoryManagerScreen(tasks: _items),
-            ),
+          onOpenCategories: () => _pushPage(
+            CategoryManagerScreen(tasks: _items),
           ),
-          onUpgradePro: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const UpgradeProDemoScreen()),
-          ),
+          onUpgradePro: () => _pushPage(const UpgradeProDemoScreen()),
         );
       case 2:
         return CalendarTab(tasks: _items);
       case 3:
         return MeTab(
           tasks: _items,
-          onUpgrade: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const UpgradeProDemoScreen()),
-          ),
+          onUpgrade: () => _pushPage(const UpgradeProDemoScreen()),
         );
       default:
         return _buildTasksView(context);
@@ -602,62 +713,130 @@ class _TaskListScreenState extends State<TaskListScreen> {
   }
 
   Widget _buildTasksView(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final list = _filtered;
     final hasData = list.isNotEmpty;
 
-    ChoiceChip _chip(String text, bool selected, VoidCallback onTap) {
-      final s = Theme.of(context).colorScheme;
-      final bg = selected ? s.primary : s.primaryContainer;
-      final fg = selected ? s.onPrimary : s.onPrimaryContainer;
-      return ChoiceChip(
-        label: Text(
-          text,
-          style: TextStyle(color: fg, fontWeight: FontWeight.w700),
+    Widget chip({
+      required IconData icon,
+      required String label,
+      required bool selected,
+      required VoidCallback onTap,
+    }) {
+      final fg = selected ? scheme.onPrimary : scheme.onSurfaceVariant;
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: RawChip(
+          avatar: Icon(icon, size: 18, color: fg),
+          label: Text(label),
+          labelStyle: TextStyle(color: fg, fontWeight: FontWeight.w600),
+          labelPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          showCheckmark: false,
+          clipBehavior: Clip.antiAlias,
+          elevation: 0,
+          pressElevation: 0,
+          shadowColor: Colors.transparent,
+          selected: selected,
+          selectedColor: scheme.primary,
+          backgroundColor: scheme.surface.withOpacity(.72),
+          onSelected: (_) => onTap(),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+            side: BorderSide(
+              color: selected ? Colors.transparent : scheme.outline.withOpacity(.2),
+            ),
+          ),
         ),
-        selected: selected,
-        selectedColor: bg,
-        backgroundColor: bg.withOpacity(selected ? 1 : .7),
-        onSelected: (_) => onTap(),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        showCheckmark: selected,
       );
     }
 
     final chipBar = AnimatedOpacity(
       duration: const Duration(milliseconds: 250),
-      opacity: hasData ? 1 : .4,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          children: [
-            _chip('Tất cả', filter == null, () => setState(() => filter = null)),
-            const SizedBox(width: 8),
-            _chip(
-              'Công việc',
-              filter == TaskCategory.work,
-              () => setState(() => filter = TaskCategory.work),
-            ),
-            const SizedBox(width: 8),
-            _chip(
-              'Cá nhân',
-              filter == TaskCategory.personal,
-              () => setState(() => filter = TaskCategory.personal),
+      opacity: hasData ? 1 : .35,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        decoration: BoxDecoration(
+          color: scheme.surface.withOpacity(.78),
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: scheme.primary.withOpacity(.08),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
             ),
           ],
+        ),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: [
+              chip(
+                icon: Icons.all_inclusive,
+                label: 'Tất cả',
+                selected: filter == null,
+                onTap: () => setState(() => filter = null),
+              ),
+              chip(
+                icon: Icons.work_outline,
+                label: 'Công việc',
+                selected: filter == TaskCategory.work,
+                onTap: () => setState(() => filter = TaskCategory.work),
+              ),
+              chip(
+                icon: Icons.self_improvement,
+                label: 'Cá nhân',
+                selected: filter == TaskCategory.personal,
+                onTap: () => setState(() => filter = TaskCategory.personal),
+              ),
+              chip(
+                icon: Icons.star_rounded,
+                label: 'Yêu thích',
+                selected: filter == TaskCategory.favorites,
+                onTap: () => setState(() => filter = TaskCategory.favorites),
+              ),
+              chip(
+                icon: Icons.cake_outlined,
+                label: 'Sinh nhật',
+                selected: filter == TaskCategory.birthday,
+                onTap: () => setState(() => filter = TaskCategory.birthday),
+              ),
+              chip(
+                icon: Icons.inbox_outlined,
+                label: 'Khác',
+                selected: filter == TaskCategory.none,
+                onTap: () => setState(() => filter = TaskCategory.none),
+              ),
+            ],
+          ),
         ),
       ),
     );
 
+    final physics = const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics());
+
+    Future<void> handleDismiss(Task task) async {
+      setState(() {
+        _items.removeWhere((it) => it.id == task.id);
+      });
+      await _deleteTaskById(task.id);
+      if (!mounted) return;
+      _showStatusSnackBar(
+        'Đã xoá “${task.title}”',
+        icon: Icons.delete_outline,
+        iconColor: theme.colorScheme.error,
+      );
+    }
+
     final listView = (_sort == SortOption.manual)
         ? ReorderableListView.builder(
             key: const PageStorageKey('manual-list'),
-            padding: const EdgeInsets.only(bottom: 100),
+            padding: const EdgeInsets.fromLTRB(0, 8, 0, 140),
+            physics: physics,
             itemCount: list.length,
             onReorder: (oldIndex, newIndex) {
-              // Lưu ý: khi có filter, thứ tự _items và list khác nhau.
-              // Ở phiên bản MVP, chỉ nên dùng "Thủ công" khi filter == null để tránh lẫn chỉ số.
               if (filter != null) return;
               setState(() {
                 if (newIndex > oldIndex) newIndex -= 1;
@@ -669,25 +848,36 @@ class _TaskListScreenState extends State<TaskListScreen> {
               final t = list[i];
               return Dismissible(
                 key: ValueKey(t.id),
-                background: Container(color: Colors.redAccent.withOpacity(.2)),
-                onDismissed: (_) async => await _deleteTaskById(t.id),
+                background: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: scheme.error.withOpacity(.14),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  alignment: Alignment.centerLeft,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Icon(Icons.delete_outline, color: scheme.error.withOpacity(.8)),
+                ),
+                secondaryBackground: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: scheme.error.withOpacity(.14),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Icon(Icons.delete_outline, color: scheme.error.withOpacity(.8)),
+                ),
+                onDismissed: (_) => handleDismiss(t),
                 child: AnimatedSize(
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeInOutCubic,
                   child: TaskItem(
                     compact: _compact,
                     task: t,
-                    onToggleDone: () async {
-                      t.done = !t.done;
-                      await _updateTask(t);
-                      setState(() {});
-                    },
+                    onToggleDone: () => _toggleTaskDone(t),
                     onOpenDetail: () => _openTaskDetail(t),
-                    onToggleFavorite: () async {
-                      t.favorite = !t.favorite;
-                      await _updateTask(t);
-                      setState(() {});
-                    },
+                    onToggleFavorite: () => _toggleFavorite(t),
                   ),
                 ),
               );
@@ -695,27 +885,44 @@ class _TaskListScreenState extends State<TaskListScreen> {
           )
         : ListView.builder(
             key: ValueKey('list-${filter?.name ?? 'all'}-${_sort.name}-${_compact ? 'compact' : 'cozy'}'),
-            padding: const EdgeInsets.only(bottom: 100),
+            padding: const EdgeInsets.fromLTRB(0, 8, 0, 140),
+            physics: physics,
             itemCount: list.length,
             itemBuilder: (ctx, i) {
               final t = list[i];
-              return AnimatedSize(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOutCubic,
-                child: TaskItem(
-                  compact: _compact,
-                  task: t,
-                  onToggleDone: () async {
-                    t.done = !t.done;
-                    await _updateTask(t);
-                    setState(() {});
-                  },
-                  onOpenDetail: () => _openTaskDetail(t),
-                  onToggleFavorite: () async {
-                    t.favorite = !t.favorite;
-                    await _updateTask(t);
-                    setState(() {});
-                  },
+              return Dismissible(
+                key: ValueKey('default-${t.id}'),
+                background: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: scheme.error.withOpacity(.14),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  alignment: Alignment.centerLeft,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Icon(Icons.delete_outline, color: scheme.error.withOpacity(.8)),
+                ),
+                secondaryBackground: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: scheme.error.withOpacity(.14),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Icon(Icons.delete_outline, color: scheme.error.withOpacity(.8)),
+                ),
+                onDismissed: (_) => handleDismiss(t),
+                child: AnimatedSize(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOutCubic,
+                  child: TaskItem(
+                    compact: _compact,
+                    task: t,
+                    onToggleDone: () => _toggleTaskDone(t),
+                    onOpenDetail: () => _openTaskDetail(t),
+                    onToggleFavorite: () => _toggleFavorite(t),
+                  ),
                 ),
               );
             },
@@ -802,32 +1009,43 @@ class _TaskListScreenState extends State<TaskListScreen> {
                 style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 14),
-              Row(
-                children: [
-                  _metricStat(
-                    context,
-                    label: 'Đang mở',
-                    value: pending,
-                    icon: Icons.circle_outlined,
-                    color: scheme.primary,
-                  ),
-                  const SizedBox(width: 12),
-                  _metricStat(
-                    context,
-                    label: 'Hoàn thành',
-                    value: completed,
-                    icon: Icons.check_circle,
-                    color: scheme.secondary,
-                  ),
-                  const SizedBox(width: 12),
-                  _metricStat(
-                    context,
-                    label: 'Đến hạn hôm nay',
-                    value: dueToday,
-                    icon: Icons.today,
-                    color: scheme.tertiary,
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isCompact = constraints.maxWidth < 520;
+                  final tileWidth = isCompact
+                      ? constraints.maxWidth
+                      : (constraints.maxWidth - 24) / 3;
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      _metricStat(
+                        context,
+                        label: 'Đang mở',
+                        value: pending,
+                        icon: Icons.circle_outlined,
+                        color: scheme.primary,
+                        width: tileWidth,
+                      ),
+                      _metricStat(
+                        context,
+                        label: 'Hoàn thành',
+                        value: completed,
+                        icon: Icons.check_circle,
+                        color: scheme.secondary,
+                        width: tileWidth,
+                      ),
+                      _metricStat(
+                        context,
+                        label: 'Đến hạn hôm nay',
+                        value: dueToday,
+                        icon: Icons.today,
+                        color: scheme.tertiary,
+                        width: tileWidth,
+                      ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 16),
               AnimatedSwitcher(
@@ -857,46 +1075,46 @@ class _TaskListScreenState extends State<TaskListScreen> {
     required int value,
     required IconData icon,
     required Color color,
+  double? width,
   }) {
     final textTheme = Theme.of(context).textTheme;
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        decoration: BoxDecoration(
-          color: color.withOpacity(.12),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 18, color: color),
-            const SizedBox(height: 6),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              transitionBuilder: (child, animation) => ScaleTransition(
-                scale: animation,
-                child: child,
-              ),
-              child: Text(
-                '$value',
-                key: ValueKey('$label-$value'),
-                style: textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: color,
-                ),
+    final card = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(.12),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(height: 6),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            transitionBuilder: (child, animation) => ScaleTransition(
+              scale: animation,
+              child: child,
+            ),
+            child: Text(
+              '$value',
+              key: ValueKey('$label-$value'),
+              style: textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: color,
               ),
             ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: textTheme.labelLarge?.copyWith(color: color.withOpacity(.9)),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: textTheme.labelLarge?.copyWith(color: color.withOpacity(.9)),
+          ),
+        ],
       ),
     );
-  }
 
+    return width == null ? card : SizedBox(width: width, child: card);
+  }
   Task? _nextDueTask() {
     final now = DateTime.now();
     final upcoming = _items.where((t) {

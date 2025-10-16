@@ -65,10 +65,51 @@ class ToDoApp extends StatelessWidget {
           backgroundColor: seed.withOpacity(.12),
           selectedColor: seed,
         ),
+        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          backgroundColor: seed,
+          foregroundColor: Colors.white,
+          elevation: 6,
+          shape: StadiumBorder(),
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: Colors.white.withOpacity(.9),
+          indicatorColor: seed.withOpacity(.18),
+          surfaceTintColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+        ),
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: ZoomPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+            TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+          },
+        ),
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.dark),
+        scaffoldBackgroundColor: const Color(0xFF1E1B2C),
+        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          backgroundColor: seed,
+          foregroundColor: Colors.white,
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: const Color(0xFF27233A),
+          indicatorColor: seed.withOpacity(.28),
+          surfaceTintColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+        ),
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: ZoomPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+            TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+          },
+        ),
       ),
       routes: {
         '/': (_) => TaskListScreen(

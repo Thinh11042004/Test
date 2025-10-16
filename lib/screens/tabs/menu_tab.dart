@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/pro_manager.dart';
-import '../Pay/upgrade_pro_demo_screen.dart';
+
 
 class MenuTab extends StatelessWidget {
   final VoidCallback onOpenCategories;
@@ -53,10 +53,7 @@ class MenuTab extends StatelessWidget {
             return item(
               Icons.workspace_premium,
               'Nâng cấp lên Pro',
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const UpgradeProDemoScreen()),
-              ),
+              onTap: onUpgradePro,
             );
           },
         ),

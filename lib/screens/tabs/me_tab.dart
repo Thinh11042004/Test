@@ -36,6 +36,9 @@ class _MeTabState extends State<MeTab> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
     final insights = AiInsightsService.generate(widget.tasks);
     final filtered = _rangeTasks;
     final done = filtered.where((t) => t.done).length;
@@ -47,7 +50,7 @@ class _MeTabState extends State<MeTab> {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Row(
         children: [
-          Expanded(child: Text(text, style: Theme.of(context).textTheme.titleLarge)),
+          Expanded(child: Text(text, style: textTheme.titleLarge)),
           _RangeDropdown(value: _days, onChanged: (v) => setState(() => _days = v)),
         ],
       ),
@@ -55,14 +58,18 @@ class _MeTabState extends State<MeTab> {
 
     Widget statCard(String title, String value) => Expanded(
       child: Card(
-        color: Theme.of(context).colorScheme.primaryContainer.withOpacity(.45),
+        color: scheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: BorderSide(color: scheme.primary.withOpacity(.12)),
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 18),
           child: Column(
             children: [
-              Text(value, style: Theme.of(context).textTheme.headlineMedium),
+              Text(value, style: textTheme.headlineMedium?.copyWith(color: scheme.primary)),
               const SizedBox(height: 6),
-              Text(title, textAlign: TextAlign.center),
+              Text(title, textAlign: TextAlign.center, style: textTheme.bodyMedium),
             ],
           ),
         ),
@@ -72,6 +79,40 @@ class _MeTabState extends State<MeTab> {
     return ListView(
       padding: const EdgeInsets.only(bottom: 100),
       children: [
+        Container(
+          margin: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [scheme.primary, scheme.secondary],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: [
+              BoxShadow(
+                color: scheme.primary.withOpacity(.18),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Chào mừng quay lại! 🎉',
+                  style: textTheme.titleMedium?.copyWith(
+                    color: scheme.onPrimary,
+                    fontWeight: FontWeight.w700,
+                  )),
+              const SizedBox(height: 8),
+              Text(
+                "Bạn đang ở chế độ ${ProManager.instance.isPro.value ? 'Pro' : 'thường'}. Hãy tiếp tục tạo những thói quen tốt!",
+                style: textTheme.bodyMedium?.copyWith(color: scheme.onPrimary.withOpacity(.85)),
+              ),
+            ],
+          ),
+        ),
         // ===== USER TILE =====
         StreamBuilder<User?>(
           stream: AuthService.instance.userChanges,
@@ -79,8 +120,11 @@ class _MeTabState extends State<MeTab> {
             final user = snap.data;
             final avatar = (user?.photoURL != null)
                 ? CircleAvatar(radius: 28, backgroundImage: NetworkImage(user!.photoURL!))
-                : CircleAvatar(radius: 28, backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-                    child: Icon(Icons.person, color: Theme.of(context).colorScheme.onSecondaryContainer));
+                : CircleAvatar(
+                    radius: 28,
+                    backgroundColor: scheme.secondaryContainer,
+                    child: Icon(Icons.person, color: scheme.onSecondaryContainer),
+                  );
             return ListTile(
               leading: avatar,
               title: Text(user?.displayName ?? 'Bạn đã giữ theo kế hoạch cũ…'),
@@ -102,42 +146,53 @@ class _MeTabState extends State<MeTab> {
         ),
 
         // ===== PRO BANNER (ẩn khi đã Pro) =====
-        Padding(
+Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: ValueListenableBuilder<bool>(
             valueListenable: ProManager.instance.isPro,
             builder: (_, isPro, __) {
               if (isPro) return const SizedBox.shrink();
               return InkWell(
-                onTap: () => Navigator.push(
-                  context, MaterialPageRoute(builder: (_) => const UpgradeProDemoScreen())),
+                onTap: widget.onUpgrade,
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Theme.of(context).colorScheme.primary.withOpacity(.75),
-                        Theme.of(context).colorScheme.primaryContainer,
+                        scheme.primary,
+                        scheme.primaryContainer.withOpacity(.9),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: scheme.primary.withOpacity(.2),
+                        blurRadius: 20,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
                   ),
                   child: Row(
-                    children: const [
+                    children: [
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('Nâng cấp lên Pro',
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-                            SizedBox(height: 4),
+                                style: textTheme.titleMedium?.copyWith(
+                                  color: scheme.onPrimary,
+                                  fontWeight: FontWeight.w700,
+                                )),
+                            const SizedBox(height: 4),
                             Text('Mở khoá tất cả các tính năng PRO',
-                                style: TextStyle(color: Colors.white70)),
+                                style: textTheme.bodyMedium?.copyWith(
+                                  color: scheme.onPrimary.withOpacity(.85),
+                                )),
                           ],
                         ),
                       ),
-                      Icon(Icons.workspace_premium, color: Colors.white, size: 32),
+                      Icon(Icons.workspace_premium, color: scheme.onPrimary, size: 32),
                     ],
                   ),
                 ),
@@ -145,8 +200,8 @@ class _MeTabState extends State<MeTab> {
             },
           ),
         ),
-        
-         const SizedBox(height: 16),
+
+        const SizedBox(height: 16),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: AiInsightCard(summary: insights),
@@ -170,26 +225,46 @@ class _MeTabState extends State<MeTab> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Card(
-            color: Theme.of(context).colorScheme.primaryContainer.withOpacity(.45),
+            color: scheme.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+              side: BorderSide(color: scheme.primary.withOpacity(.1)),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [const Expanded(child: Text('Hoàn thành nhiệm vụ hàng ngày')), Text(_rangeLabel)]),
+                Row(children: [
+                  Expanded(child: Text('Hoàn thành nhiệm vụ hàng ngày', style: textTheme.titleMedium)),
+                  Text(_rangeLabel, style: textTheme.bodyMedium?.copyWith(color: scheme.primary)),
+                ]),
                 const SizedBox(height: 16),
-                Container(height: 180, alignment: Alignment.center, child: const Text('Không có dữ liệu nhiệm vụ')),
+                Container(
+                  height: 180,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    color: scheme.primaryContainer.withOpacity(.3),
+                  ),
+                  child: Text(
+                    'Không có dữ liệu nhiệm vụ',
+                    style: textTheme.bodyMedium?.copyWith(color: scheme.primary),
+                  ),
+                ),
               ]),
             ),
           ),
         ),
-
         // Upcoming
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text('Nhiệm vụ trong ${_days ?? 'tất cả'} ngày tới', style: Theme.of(context).textTheme.titleLarge),
+          child: Text('Nhiệm vụ trong ${_days ?? 'tất cả'} ngày tới', style: textTheme.titleLarge),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Card(child: Column(children: _buildUpcomingList(context, filtered))),
+          child: Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            child: Column(children: _buildUpcomingList(context, filtered)),
+          ),
         ),
 
         // Breakdown
@@ -197,7 +272,7 @@ class _MeTabState extends State<MeTab> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Row(
             children: [
-              Expanded(child: Text('Phân loại nhiệm vụ chưa hoàn thành', style: Theme.of(context).textTheme.titleLarge)),
+              Expanded(child: Text('Phân loại nhiệm vụ chưa hoàn thành', style: textTheme.titleLarge)),
               _RangeDropdown(value: _days, onChanged: (v) => setState(() => _days = v)),
             ],
           ),
@@ -213,15 +288,25 @@ class _MeTabState extends State<MeTab> {
                   child: Stack(alignment: Alignment.center, children: [
                     Container(
                       width: 140, height: 140,
-                      decoration: BoxDecoration(shape: BoxShape.circle, color: Theme.of(context).colorScheme.primary.withOpacity(.15)),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: scheme.primary.withOpacity(.15),
+                      ),
                     ),
-                    Container(width: 70, height: 70, decoration: BoxDecoration(shape: BoxShape.circle, color: Theme.of(context).colorScheme.surface)),
+                    Container(
+                      width: 70,
+                      height: 70,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: scheme.surface,
+                      ),
+                    ),
                   ]),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    _legend(context, Theme.of(context).colorScheme.primary, 'Công việc', workCnt),
+                    _legend(context, scheme.primary, 'Công việc', workCnt),
                     const SizedBox(height: 8),
                     _legend(context, Colors.orange, 'Cá nhân', personalCnt),
                   ]),
