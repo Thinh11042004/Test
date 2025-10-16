@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/task.dart';
 import '../widgets/task_item.dart';
@@ -259,6 +260,130 @@ Future<void> _deleteTaskById(String? id) async {
     );
   }
 
+  Future<void> _launchUri(Uri uri) async {
+    try {
+      final success = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!success && mounted) {
+        _showStatusSnackBar('Không thể mở liên hệ, vui lòng thử lại sau.', icon: Icons.error_outline);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showStatusSnackBar('Không thể mở liên hệ, vui lòng thử lại sau.', icon: Icons.error_outline);
+      }
+    }
+  }
+
+  void _showContactSheet() {
+    if (!mounted) return;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return Container(
+          margin: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+            gradient: LinearGradient(
+              colors: [
+                scheme.primaryContainer.withOpacity(.92),
+                scheme.secondaryContainer.withOpacity(.9),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: scheme.primary.withOpacity(.18),
+                blurRadius: 26,
+                offset: const Offset(0, 14),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: scheme.primary.withOpacity(.18),
+                        ),
+                        child: Icon(Icons.support_agent, color: scheme.primary),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Cần trợ giúp?',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: scheme.onPrimaryContainer,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Liên hệ với chúng tôi để được hỗ trợ nhanh chóng.',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: scheme.onPrimaryContainer.withOpacity(.85),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  _ContactAction(
+                    icon: Icons.chat_bubble_outline,
+                    label: 'Nhắn tin Zalo',
+                    subtitle: 'Nhận phản hồi trong vài phút',
+                    color: scheme.primary,
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      _launchUri(Uri.parse('https://zalo.me/your-team'));
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _ContactAction(
+                    icon: Icons.email_outlined,
+                    label: 'Gửi email',
+                    subtitle: 'support@todoapp.vn',
+                    color: scheme.secondary,
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      _launchUri(Uri(scheme: 'mailto', path: 'support@todoapp.vn'));
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _ContactAction(
+                    icon: Icons.phone_outlined,
+                    label: 'Gọi đường dây nóng',
+                    subtitle: '1900 636 123',
+                    color: scheme.tertiary,
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      _launchUri(Uri(scheme: 'tel', path: '1900636123'));
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _toggleFavorite(Task task) {
     final next = !task.favorite;
     setState(() => task.favorite = next);
@@ -456,7 +581,16 @@ Future<void> _deleteTaskById(String? id) async {
             key: ValueKey(_tabIndex),
           ),
         ),
-        actions: _tabIndex == 1 ? [_buildMoreMenu()] : null,
+     actions: _tabIndex == 1
+            ? [
+                IconButton( 
+                  tooltip: 'Liên hệ hỗ trợ',
+                  icon: const Icon(Icons.support_agent),
+                  onPressed: _showContactSheet,
+                ),
+                _buildMoreMenu(),
+              ]
+            : null,
       ),
       body: SafeArea(
         child: AnimatedSwitcher(
@@ -738,13 +872,13 @@ Future<void> _deleteTaskById(String? id) async {
     final list = _filtered;
     final hasData = list.isNotEmpty;
 
-    Widget chip({
+ Widget chip({
       required IconData icon,
       required String label,
       required bool selected,
       required VoidCallback onTap,
     }) {
-      final fg = selected ? scheme.onPrimary : scheme.onSurfaceVariant;
+      final fg = selected ? scheme.onPrimary : scheme.onSurface;
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
         child: RawChip(
@@ -759,7 +893,7 @@ Future<void> _deleteTaskById(String? id) async {
           shadowColor: Colors.transparent,
           selected: selected,
           selectedColor: scheme.primary,
-          backgroundColor: scheme.surface.withOpacity(.72),
+          backgroundColor: scheme.surfaceVariant.withOpacity(.55),
           onSelected: (_) => onTap(),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
@@ -778,11 +912,18 @@ Future<void> _deleteTaskById(String? id) async {
         margin: const EdgeInsets.fromLTRB(16, 4, 16, 12),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         decoration: BoxDecoration(
-          color: scheme.surface.withOpacity(.9),
+          gradient: LinearGradient(
+            colors: [
+              scheme.primaryContainer.withOpacity(.85),
+              scheme.secondaryContainer.withOpacity(.85),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: scheme.primary.withOpacity(.08),
+              color: scheme.primary.withOpacity(.12),
               blurRadius: 24,
               offset: const Offset(0, 12),
             ),
@@ -850,145 +991,110 @@ Future<void> _deleteTaskById(String? id) async {
       );
     }
 
-    final listView = (_sort == SortOption.manual)
-        ? ReorderableListView.builder(
-            key: const PageStorageKey('manual-list'),
-            padding: const EdgeInsets.fromLTRB(0, 8, 0, 140),
-            physics: physics,
-            itemCount: list.length,
-            onReorder: (oldIndex, newIndex) {
-              if (filter != null) return;
-              setState(() {
-                if (newIndex > oldIndex) newIndex -= 1;
-                final item = _items.removeAt(oldIndex);
-                _items.insert(newIndex, item);
-              });
-            },
-            itemBuilder: (ctx, i) {
-              final t = list[i];
-              return Dismissible(
-                key: ValueKey(t.id),
-                background: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: scheme.error.withOpacity(.14),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  alignment: Alignment.centerLeft,
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Icon(Icons.delete_outline, color: scheme.error.withOpacity(.8)),
-                ),
-                secondaryBackground: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: scheme.error.withOpacity(.14),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Icon(Icons.delete_outline, color: scheme.error.withOpacity(.8)),
-                ),
-                onDismissed: (_) => handleDismiss(t),
-                child: AnimatedSize(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOutCubic,
-                  child: TaskItem(
-                    compact: _compact,
-                    task: t,
-                    onToggleDone: () => _toggleTaskDone(t),
-                    onOpenDetail: () => _openTaskDetail(t),
-                    onToggleFavorite: () => _toggleFavorite(t),
-                  ),
-                ),
-              );
-            },
-          )
-        : ListView.builder(
-            key: ValueKey('list-${filter?.name ?? 'all'}-${_sort.name}-${_compact ? 'compact' : 'cozy'}'),
-            padding: const EdgeInsets.fromLTRB(0, 8, 0, 140),
-            physics: physics,
-            itemCount: list.length,
-            itemBuilder: (ctx, i) {
-              final t = list[i];
-              return Dismissible(
-                key: ValueKey('default-${t.id}'),
-                background: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: scheme.error.withOpacity(.14),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  alignment: Alignment.centerLeft,
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Icon(Icons.delete_outline, color: scheme.error.withOpacity(.8)),
-                ),
-                secondaryBackground: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: scheme.error.withOpacity(.14),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Icon(Icons.delete_outline, color: scheme.error.withOpacity(.8)),
-                ),
-                onDismissed: (_) => handleDismiss(t),
-                child: AnimatedSize(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOutCubic,
-                  child: TaskItem(
-                    compact: _compact,
-                    task: t,
-                    onToggleDone: () => _toggleTaskDone(t),
-                    onOpenDetail: () => _openTaskDetail(t),
-                    onToggleFavorite: () => _toggleFavorite(t),
-                  ),
-                ),
-              );
-            },
-          );
-
-
-    return KeyedSubtree(
-      key: ValueKey('tasks-${filter?.name ?? 'all'}-${_sort.name}-${_items.length}'),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildOverviewCard(context),
-          chipBar,
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 350),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (child, animation) {
-                final offsetAnimation = Tween<Offset>(
-                  begin: const Offset(0, .04),
-                  end: Offset.zero,
-                ).animate(animation);
-                return FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(position: offsetAnimation, child: child),
-                );
-              },
-              child: hasData
-                  ? listView
-                  : KeyedSubtree(
-                      key: const ValueKey('empty'),
-                      child: LayoutBuilder(
-                        builder: (context, constraints) => SingleChildScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                            child: _emptyState(context),
-                          ),
-                        ),
-                      ),
-                    ),
-            ),
+    Widget buildCard(Task t, Key key) {
+      return Dismissible(
+        key: key,
+        background: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: scheme.error.withOpacity(.14),
+            borderRadius: BorderRadius.circular(20),
           ),
-        ],
-      ),
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Icon(Icons.delete_outline, color: scheme.error.withOpacity(.8)),
+        ),
+        secondaryBackground: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: scheme.error.withOpacity(.14),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Icon(Icons.delete_outline, color: scheme.error.withOpacity(.8)),
+        ),
+        onDismissed: (_) => handleDismiss(t),
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOutCubic,
+          child: TaskItem(
+            compact: _compact,
+            task: t,
+            onToggleDone: () => _toggleTaskDone(t),
+            onOpenDetail: () => _openTaskDetail(t),
+            onToggleFavorite: () => _toggleFavorite(t),
+          ),
+        ),
+      );
+    }
+
+    final manualList = ReorderableListView.builder(
+      key: const PageStorageKey('manual-list'),
+      shrinkWrap: true,
+      padding: EdgeInsets.zero,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: list.length,
+      onReorder: (oldIndex, newIndex) {
+        if (filter != null) return;
+        setState(() {
+          if (newIndex > oldIndex) newIndex -= 1;
+          final item = _items.removeAt(oldIndex);
+          _items.insert(newIndex, item);
+        });
+      },
+      itemBuilder: (ctx, i) {
+        final t = list[i];
+        return buildCard(t, ValueKey('manual-${t.id}'));
+      },
+    );
+
+    final defaultList = ListView.builder(
+      key: ValueKey('list-${filter?.name ?? 'all'}-${_sort.name}-${_compact ? 'compact' : 'cozy'}'),
+      shrinkWrap: true,
+      padding: EdgeInsets.zero,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: list.length,
+      itemBuilder: (ctx, i) {
+        final t = list[i];
+        return buildCard(t, ValueKey('default-${t.id}'));
+      },
+    );
+
+    return CustomScrollView(
+      key: ValueKey('tasks-${filter?.name ?? 'all'}-${_sort.name}-${_items.length}-${hasData ? 'data' : 'empty'}'),
+      physics: physics,
+      slivers: [
+        SliverToBoxAdapter(child: _buildOverviewCard(context)),
+        SliverToBoxAdapter(child: chipBar),
+        if (hasData)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(0, 8, 0, 140),
+            sliver: SliverToBoxAdapter(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 350),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, animation) {
+                  final offsetAnimation = Tween<Offset>(
+                    begin: const Offset(0, .04),
+                    end: Offset.zero,
+                  ).animate(animation);
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(position: offsetAnimation, child: child),
+                  );
+                },
+                child: _sort == SortOption.manual ? manualList : defaultList,
+              ),
+            ),
+          )
+        else
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: _emptyState(context),
+          ),
+      ],
     );
   }
 
@@ -1110,16 +1216,39 @@ Future<void> _deleteTaskById(String? id) async {
   double? width,
   }) {
     final textTheme = Theme.of(context).textTheme;
+final gradient = LinearGradient(
+      colors: [
+        color.withOpacity(.28),
+        color.withOpacity(.12),
+      ],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+
     final card = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
-        color: color.withOpacity(.12),
         borderRadius: BorderRadius.circular(18),
+        gradient: gradient,
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(.14),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: color),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withOpacity(.68),
+            ),
+            child: Icon(icon, size: 18, color: color),
+          ),
           const SizedBox(height: 6),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 250),
@@ -1224,4 +1353,75 @@ Future<void> _deleteTaskById(String? id) async {
           ),
         ),
       );
+}
+
+class _ContactAction extends StatelessWidget {
+  const _ContactAction({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            color: color.withOpacity(.12),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color.withOpacity(.18),
+                ),
+                child: Icon(icon, color: color),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Icon(Icons.arrow_forward_ios, size: 16, color: color),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
