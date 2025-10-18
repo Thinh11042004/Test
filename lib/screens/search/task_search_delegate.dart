@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../models/task.dart';
 
-class TaskSearchDelegate extends SearchDelegate {
+class TaskSearchDelegate extends SearchDelegate<Task?> {
   final List<Task> tasks;
-  final void Function(Task) onTapTask;
-  TaskSearchDelegate(this.tasks, {required this.onTapTask});
+  TaskSearchDelegate(this.tasks);
 
   @override
   List<Widget>? buildActions(BuildContext context) =>
@@ -29,7 +28,7 @@ class TaskSearchDelegate extends SearchDelegate {
         return ListTile(
           leading: const Icon(Icons.task_alt_outlined),
           title: Text(t.title),
-          onTap: () => onTapTask(t),
+          onTap: () => close(context, t),
         );
       },
     );
