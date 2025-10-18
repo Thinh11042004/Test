@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/task.dart';
 import '../../widgets/task_item.dart';
@@ -18,17 +17,17 @@ import '../tabs/me_tab.dart';
 import '../../services/auth_service.dart';
 import '../auth/login_screen.dart';
 
+
 // search
 import '../search/task_search_delegate.dart';
 
 // Pro demo
 import '../../services/pro_manager.dart';
-import '../Pay/upgrade_pro_demo_screen.dart';
 import '../../services/category_store.dart';
+import '../../utils/upgrade_flow.dart';
 
 import 'task_list_controller.dart';
 import '../task_list_overview.dart';
-import '../task_list_contact.dart';
 
 enum SortOption {
   dueDate,
@@ -46,6 +45,24 @@ enum _MenuAction {
   printTasks,
   toggleCompact,
   upgradePro,
+}
+
+class _TabConfig {
+  final String title;
+  final IconData icon;
+  final List<Color> gradient;
+  final bool useGradient;
+  final bool showFab;
+  final Widget child;
+
+  const _TabConfig({
+    required this.title,
+    required this.icon,
+    required this.gradient,
+    required this.useGradient,
+    required this.showFab,
+    required this.child,
+  });
 }
 
 class TaskListScreen extends StatefulWidget {
@@ -128,46 +145,6 @@ class _TaskListScreenState extends State<TaskListScreen> {
     );
   }
 
-  Future<void> _launchUri(Uri uri) async {
-    try {
-      final success = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!success && mounted) {
-        _showStatusSnackBar('Không thể mở liên hệ, vui lòng thử lại sau.', icon: Icons.error_outline);
-      }
-    } catch (e) {
-      if (mounted) {
-        _showStatusSnackBar('Không thể mở liên hệ, vui lòng thử lại sau.', icon: Icons.error_outline);
-      }
-    }
-  }
-
-  void _showContactSheet() {
-    if (!mounted) return;
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => TaskListContactSheet(
-        actions: [
-          ContactAction(
-            icon: Icons.email,
-            label: 'Email Support',
-            subtitle: 'Liên hệ qua email',
-            color: Colors.blue,
-            onTap: () => _launchUri(Uri.parse('mailto:support@example.com')),
-          ),
-          ContactAction(
-            icon: Icons.web,
-            label: 'Website',
-            subtitle: 'Truy cập trang web',
-            color: Colors.green,
-            onTap: () => _launchUri(Uri.parse('https://example.com')),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _toggleFavorite(Task task) {
     final next = !task.favorite;
     setState(() => task.favorite = next);
@@ -182,7 +159,10 @@ class _TaskListScreenState extends State<TaskListScreen> {
     );
   }
 
-  Future<void> _createTask() async {
+    Future<void> _createTask() async {
+    if (!await _ensureCanCreateTask()) {
+      return;
+    }
     HapticFeedback.mediumImpact();
     final newTask = await showModalBottomSheet<Task>(
       context: context,
@@ -203,6 +183,9 @@ class _TaskListScreenState extends State<TaskListScreen> {
   }
 
   Future<void> _createTaskForDate(DateTime date) async {
+    if (!await _ensureCanCreateTask()) {
+      return;
+    }
     HapticFeedback.mediumImpact();
     final initial = Task(
       id: UniqueKey().toString(),
@@ -244,53 +227,49 @@ class _TaskListScreenState extends State<TaskListScreen> {
     );
   }
 
-  Future<T?> _pushPage<T>(Widget page) {
+Future<T?> _pushPage<T>(Widget page) {
     return Navigator.of(context).push<T>(_buildPageRoute(page));
   }
 
   Future<void> _startUpgradeFlow() async {
     if (!mounted) return;
-
-    if (AuthService.instance.currentUser == null) {
-      final shouldLogin = await showDialog<bool>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Cần đăng nhập'),
-          content: const Text('Bạn phải đăng nhập để nâng cấp tài khoản Pro.'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Để sau')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Đăng nhập')),
-          ],
-        ),
-      );
-
-      if (shouldLogin != true || !mounted) {
-        return;
-      }
-
-      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LoginScreen()));
-
-      if (!mounted) {
-        return;
-      }
-
-      if (AuthService.instance.currentUser == null) {
-        _showStatusSnackBar('Đăng nhập thất bại. Vui lòng thử lại.', icon: Icons.error_outline);
-        return;
-      }
-    }
-
-    final upgraded = await _pushPage<bool>(const UpgradeProDemoScreen());
+    final upgraded = await UpgradeFlow.start(context);
     if (!mounted) return;
-
     setState(() {});
-    if (upgraded == true) {
+    if (upgraded) {
       _showStatusSnackBar(
         'Đã kích hoạt Pro thành công!',
         icon: Icons.workspace_premium,
         iconColor: Theme.of(context).colorScheme.secondary,
       );
     }
+  }
+
+  Future<bool> _ensureCanCreateTask() async {
+    if (ProManager.instance.isPro.value) {
+      return true;
+    }
+    if (_items.length < 10) {
+      return true;
+    }
+    if (!mounted) return false;
+    final shouldUpgrade = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Giới hạn nhiệm vụ'),
+        content: const Text('Tài khoản thường chỉ tạo tối đa 10 nhiệm vụ. Nâng cấp Pro để mở khoá không giới hạn và nhiệm vụ phụ.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Để sau')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Nâng cấp Pro')),
+        ],
+      ),
+    );
+    if (shouldUpgrade == true) {
+      await _startUpgradeFlow();
+      if (!mounted) return false;
+      return ProManager.instance.isPro.value;
+    }
+    return false;
   }
 
   // -------------------- UI state --------------------
@@ -404,23 +383,62 @@ class _TaskListScreenState extends State<TaskListScreen> {
     super.dispose();
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
-    final titles = ['Menu', 'Nhiệm vụ', 'Lịch', 'Của tôi'];
-    final view = _buildTabView(context);
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final gradients = [
-      [scheme.secondaryContainer.withOpacity(.55), scheme.surface],
-      [scheme.primaryContainer.withOpacity(.55), scheme.surface],
-      [scheme.tertiaryContainer.withOpacity(.55), scheme.surface],
-      [scheme.surfaceTint.withOpacity(.35), scheme.surface],
+
+    final tabs = [
+      _TabConfig(
+        title: 'Menu',
+        icon: Icons.menu,
+        gradient: [scheme.secondaryContainer.withOpacity(.55), scheme.surface],
+        useGradient: false,
+        showFab: false,
+        child: MenuTab(
+          onOpenCategories: () => _pushPage(
+            CategoryManagerScreen(tasks: _items),
+          ),
+          onUpgradePro: () => _startUpgradeFlow(),
+        ),
+      ),
+      _TabConfig(
+        title: 'Nhiệm vụ',
+        icon: Icons.checklist,
+        gradient: [scheme.primaryContainer.withOpacity(.55), scheme.surface],
+        useGradient: true,
+        showFab: true,
+        child: _buildTasksView(context),
+      ),
+      _TabConfig(
+        title: 'Lịch',
+        icon: Icons.calendar_month,
+        gradient: [scheme.tertiaryContainer.withOpacity(.55), scheme.surface],
+        useGradient: false,
+        showFab: false,
+        child: CalendarTab(
+          tasks: _items,
+          onOpenTask: _openTaskDetail,
+          onCreateForDate: _createTaskForDate,
+        ),
+      ),
+      _TabConfig(
+        title: 'Của tôi',
+        icon: Icons.person_rounded,
+        gradient: [scheme.surfaceTint.withOpacity(.35), scheme.surface],
+        useGradient: false,
+        showFab: false,
+        child: MeTab(
+          tasks: _items,
+          onUpgrade: () => _startUpgradeFlow(),
+        ),
+      ),
     ];
-    final gradient = gradients[_tabIndex.clamp(0, gradients.length - 1)];
-    final useGradient = _tabIndex == 1;
+
+    final current = tabs[_tabIndex.clamp(0, tabs.length - 1)];
 
     final scaffold = Scaffold(
-      backgroundColor: useGradient ? Colors.transparent : theme.scaffoldBackgroundColor,
+      backgroundColor: current.useGradient ? Colors.transparent : theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: AnimatedSwitcher(
           duration: const Duration(milliseconds: 250),
@@ -435,20 +453,11 @@ class _TaskListScreenState extends State<TaskListScreen> {
             ),
           ),
           child: Text(
-            titles[_tabIndex],
+            current.title,
             key: ValueKey(_tabIndex),
           ),
         ),
-        actions: _tabIndex == 1
-            ? [
-                IconButton(
-                  tooltip: 'Liên hệ hỗ trợ',
-                  icon: const Icon(Icons.support_agent),
-                  onPressed: _showContactSheet,
-                ),
-                _buildMoreMenu(),
-              ]
-            : null,
+        actions: _tabIndex == 1 ? [_buildMoreMenu()] : null,
       ),
       body: SafeArea(
         child: AnimatedSwitcher(
@@ -467,7 +476,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
           },
           child: KeyedSubtree(
             key: ValueKey('tab-$_tabIndex'),
-            child: view,
+            child: current.child,
           ),
         ),
       ),
@@ -477,7 +486,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
           scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
           child: child,
         ),
-        child: _tabIndex == 1
+        child: current.showFab
             ? FloatingActionButton(
                 key: const ValueKey('fab'),
                 onPressed: _createTask,
@@ -491,22 +500,17 @@ class _TaskListScreenState extends State<TaskListScreen> {
         selectedIndex: _tabIndex,
         onDestinationSelected: (i) => setState(() => _tabIndex = i),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.menu), label: 'Menu'),
-          NavigationDestination(icon: Icon(Icons.checklist), label: 'Nhiệm vụ'),
-          NavigationDestination(
-            icon: Icon(Icons.calendar_month),
-            label: 'Lịch',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_rounded),
-            label: 'Của tôi',
-          ),
+        destinations: [
+          for (final tab in tabs)
+            NavigationDestination(
+              icon: Icon(tab.icon),
+              label: tab.title,
+            ),
         ],
       ),
     );
 
-    if (!useGradient) {
+    if (!current.useGradient) {
       return scaffold;
     }
 
@@ -515,7 +519,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: gradient,
+          colors: current.gradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -600,6 +604,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
     }
   }
 
+
   Future<SortOption?> _showSortDialog() async {
     SortOption temp = _sort;
     return showDialog<SortOption>(
@@ -646,44 +651,6 @@ class _TaskListScreenState extends State<TaskListScreen> {
   }
 
   // -------------------- BODY --------------------
-  Widget _buildTabView(BuildContext context) {
-  switch (_tabIndex) {
-    case 0:
-      return MenuTab(
-        onOpenCategories: () => _pushPage(
-          CategoryManagerScreen(tasks: _items),
-        ),
-        onOpenFavorites: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => FavoriteTaskListScreen(
-                tasks: _items.where((t) => t.favorite).toList(),
-              ),
-            ),
-          );
-        },
-        onUpgradePro: _startUpgradeFlow,
-      );
-
-    case 1:
-      return CalendarTab(
-        tasks: _items,
-        onOpenTask: _openTaskDetail,
-        onCreateForDate: _createTaskForDate,
-      );
-
-    case 2:
-      return MeTab(
-        tasks: _items,
-        onUpgrade: _startUpgradeFlow,
-      );
-
-    default:
-      return _buildTasksView(context);
-  }
-}
-
-
   Future<void> _openTaskDetail(Task task) async {
     final detailCopy = task.clone();
     final result = await Navigator.of(context).push<Task>(

@@ -113,7 +113,6 @@ class TaskListController {
       updatedAt: t.updatedAt.toUtc(),
     );
   }
-
   Future<int> addTask(Task newTask) async {
     final now = DateTime.now();
     newTask
