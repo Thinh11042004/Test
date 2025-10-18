@@ -7,7 +7,6 @@ class SettingsState {
   final bool focusMode;
   final bool calendarSync;
   final bool autoArchiveCompleted;
-  final String chatGptApiKey;
 
   const SettingsState({
     this.notificationsEnabled = false,
@@ -15,7 +14,6 @@ class SettingsState {
     this.focusMode = false,
     this.calendarSync = false,
     this.autoArchiveCompleted = false,
-    this.chatGptApiKey = '',
   });
 
   SettingsState copyWith({
@@ -24,7 +22,6 @@ class SettingsState {
     bool? focusMode,
     bool? calendarSync,
     bool? autoArchiveCompleted,
-    String? chatGptApiKey,
   }) {
     return SettingsState(
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
@@ -32,7 +29,6 @@ class SettingsState {
       focusMode: focusMode ?? this.focusMode,
       calendarSync: calendarSync ?? this.calendarSync,
       autoArchiveCompleted: autoArchiveCompleted ?? this.autoArchiveCompleted,
-      chatGptApiKey: chatGptApiKey ?? this.chatGptApiKey,
     );
   }
 }
@@ -55,7 +51,6 @@ class SettingsService extends ChangeNotifier {
     final autoArchive = _prefs?.getBool(_autoArchiveKey) ?? _state.autoArchiveCompleted;
     final hour = _prefs?.getInt(_reminderHourKey);
     final minute = _prefs?.getInt(_reminderMinuteKey);
-    final apiKey = _prefs?.getString(_chatGptKey) ?? _state.chatGptApiKey;
 
     _state = _state.copyWith(
       notificationsEnabled: enabled,
@@ -65,7 +60,6 @@ class SettingsService extends ChangeNotifier {
       focusMode: focus,
       calendarSync: calendar,
       autoArchiveCompleted: autoArchive,
-      chatGptApiKey: apiKey,
     );
     notifyListeners();
   }
@@ -106,19 +100,8 @@ class SettingsService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setChatGptApiKey(String value) async {
-    _state = _state.copyWith(chatGptApiKey: value.trim());
-    if (value.trim().isEmpty) {
-      await _prefs?.remove(_chatGptKey);
-    } else {
-      await _prefs?.setString(_chatGptKey, value.trim());
-    }
-    notifyListeners();
-  }
-
   Future<void> restoreProductivityDefaults() async {
-    final apiKey = _state.chatGptApiKey;
-    _state = SettingsState(chatGptApiKey: apiKey);
+    _state = const SettingsState();
     await _prefs?.remove(_notificationsKey);
     await _prefs?.remove(_reminderHourKey);
     await _prefs?.remove(_reminderMinuteKey);
@@ -134,5 +117,4 @@ class SettingsService extends ChangeNotifier {
   static const String _focusModeKey = 'settings_focus_mode';
   static const String _calendarSyncKey = 'settings_calendar_sync';
   static const String _autoArchiveKey = 'settings_auto_archive';
-  static const String _chatGptKey = 'settings_chat_gpt_key';
 }

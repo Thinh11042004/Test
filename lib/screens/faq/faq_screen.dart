@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../services/chat_gpt_service.dart';
-import '../../services/settings_service.dart';
 
 class FAQScreen extends StatefulWidget {
   const FAQScreen({Key? key}) : super(key: key);
@@ -42,33 +41,26 @@ class _FAQScreenState extends State<FAQScreen> {
       appBar: AppBar(title: const Text('Hỏi Đáp')), 
       body: Column(
         children: [
-          AnimatedBuilder(
-            animation: SettingsService.instance,
-            builder: (context, _) {
-              final hasKey = SettingsService.instance.state.chatGptApiKey.isNotEmpty;
-              if (hasKey) return const SizedBox.shrink();
-              return Container(
-                width: double.infinity,
-                margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(16),
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.35),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Icon(Icons.info_outline),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Trợ lý ChatGPT đã được kích hoạt sẵn để hỗ trợ bạn giải đáp thắc mắc.',
+                  ),
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Icon(Icons.info_outline),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Để trợ lý ChatGPT hoạt động, hãy nhập OpenAI API key trong mục Cài đặt.',
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
+              ],
+            ),
           ),
           Expanded(
             child: ListView.builder(

@@ -68,7 +68,9 @@ class TaskListController {
       timeOfDay: timeOfDay,
       reminderBefore: remindBefore,
       repeat: RepeatRule.none,
-      subtasks: const [],
+      subtasks: e.subtasks
+          .map((s) => SubTask(title: s.title, done: s.done))
+          .toList(),
       done: e.status == 'done',
       favorite: e.favorite,
       notes: e.notes,
@@ -103,6 +105,9 @@ class TaskListController {
       priority: 'normal',
       categoryId: t.customCategoryId ?? categoryToId(t.category),
       tags: const [],
+      subtasks: t.subtasks
+          .map((s) => SubTaskEntity(title: s.title, done: s.done))
+          .toList(),
       favorite: t.favorite,
       createdAt: t.createdAt.toUtc(),
       updatedAt: t.updatedAt.toUtc(),

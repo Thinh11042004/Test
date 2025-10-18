@@ -1,8 +1,7 @@
 import 'dart:convert';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
-
-import 'settings_service.dart';
 
 class ChatGptException implements Exception {
   final String message;
@@ -19,13 +18,13 @@ class ChatGptService {
   final http.Client _client = http.Client();
 
   Future<String> ask(String prompt) async {
-    final apiKey = SettingsService.instance.state.chatGptApiKey;
+    final apiKey = _resolveApiKey();
     if (apiKey.isEmpty) {
-      throw ChatGptException('Vui lòng cấu hình OpenAI API key trong mục Cài đặt.');
+      throw ChatGptException('ChatGPT chưa được cấu hình.');
     }
 
     final response = await _client.post(
-      Uri.parse('https://api.openai.com/v1/chat/completions'),
+      Uri.parse('https://openrouter.ai/api/v1/chat/completions'),
       headers: {
         'Authorization': 'Bearer $apiKey',
         'Content-Type': 'application/json',
@@ -71,4 +70,18 @@ class ChatGptService {
 
     throw ChatGptException('ChatGPT không trả về kết quả phù hợp.');
   }
+}
+
+String _resolveApiKey() {
+  final envKey = dotenv.env['OPENAI_API_KEY'] ?? '';
+  if (envKey.trim().isNotEmpty) {
+    return envKey.trim();
+  }
+
+  const buildTimeKey = String.fromEnvironment(
+    'OPENAI_API_KEY',
+    defaultValue: '',
+  );
+
+  return buildTimeKey.trim();
 }

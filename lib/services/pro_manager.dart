@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'auth_service.dart';
+
 class ProManager {
   ProManager._();
   static final ProManager instance = ProManager._();
@@ -15,6 +17,9 @@ class ProManager {
   }
 
   Future<void> upgrade() async {
+    if (AuthService.instance.currentUser == null) {
+      throw StateError('Bạn cần đăng nhập trước khi nâng cấp.');
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kPro, true);
     isPro.value = true;

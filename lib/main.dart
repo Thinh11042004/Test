@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'firebase_options.dart';
 import 'services/notification_service.dart';
@@ -11,6 +12,8 @@ import 'screens/task/task_templates_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await _initEnv();
 
   // Firebase init (đơn giản và an toàn cho mọi nền tảng)
   try {
@@ -31,7 +34,7 @@ Future<void> main() async {
   }
 
   // App services
-  await ProManager.instance.init();
+await ProManager.instance.init();
   await NotificationService.instance.init();
   await SettingsService.instance.init();
   await ThemeManager.instance.init();
@@ -39,12 +42,24 @@ Future<void> main() async {
   runApp(const ToDoApp());
 }
 
+Future<void> _initEnv() async {
+  if (dotenv.isInitialized) {
+    return;
+  }
+
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (err) {
+    debugPrint('dotenv load warning: $err');
+  }
+}
+
 class ToDoApp extends StatelessWidget {
   const ToDoApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
+return AnimatedBuilder(
       animation: ThemeManager.instance,
       builder: (_, __) {
         final settings = ThemeManager.instance.settings;
@@ -85,13 +100,12 @@ ThemeData _buildTheme(Color seed, Brightness brightness) {
       centerTitle: true,
       elevation: 0,
     ),
-    cardTheme: CardThemeData(
+      cardTheme: CardThemeData(
           color: isLight ? Colors.white.withOpacity(.96) : const Color(0xFF322D57),
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           // surfaceTintColor: Colors.transparent, // tùy chọn nếu muốn tắt bóng tím M3
         ),
-
     chipTheme: ChipThemeData(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       backgroundColor: scheme.primary.withOpacity(isLight ? .14 : .26),

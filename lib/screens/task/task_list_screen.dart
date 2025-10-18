@@ -15,6 +15,8 @@ import '../../services/notification_service.dart';
 import '../menu/menu_tab.dart';
 import '../tabs/calendar_tab.dart';
 import '../tabs/me_tab.dart';
+import '../../services/auth_service.dart';
+import '../auth/login_screen.dart';
 
 // search
 import '../search/task_search_delegate.dart';
@@ -244,6 +246,51 @@ class _TaskListScreenState extends State<TaskListScreen> {
 
   Future<T?> _pushPage<T>(Widget page) {
     return Navigator.of(context).push<T>(_buildPageRoute(page));
+  }
+
+  Future<void> _startUpgradeFlow() async {
+    if (!mounted) return;
+
+    if (AuthService.instance.currentUser == null) {
+      final shouldLogin = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Cần đăng nhập'),
+          content: const Text('Bạn phải đăng nhập để nâng cấp tài khoản Pro.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Để sau')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Đăng nhập')),
+          ],
+        ),
+      );
+
+      if (shouldLogin != true || !mounted) {
+        return;
+      }
+
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LoginScreen()));
+
+      if (!mounted) {
+        return;
+      }
+
+      if (AuthService.instance.currentUser == null) {
+        _showStatusSnackBar('Đăng nhập thất bại. Vui lòng thử lại.', icon: Icons.error_outline);
+        return;
+      }
+    }
+
+    final upgraded = await _pushPage<bool>(const UpgradeProDemoScreen());
+    if (!mounted) return;
+
+    setState(() {});
+    if (upgraded == true) {
+      _showStatusSnackBar(
+        'Đã kích hoạt Pro thành công!',
+        icon: Icons.workspace_premium,
+        iconColor: Theme.of(context).colorScheme.secondary,
+      );
+    }
   }
 
   // -------------------- UI state --------------------
@@ -548,8 +595,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
         setState(() => _compact = !_compact);
         break;
       case _MenuAction.upgradePro:
-        await _pushPage(const UpgradeProDemoScreen());
-        if (mounted) setState(() {});
+        await _startUpgradeFlow();
         break;
     }
   }
@@ -601,46 +647,42 @@ class _TaskListScreenState extends State<TaskListScreen> {
 
   // -------------------- BODY --------------------
   Widget _buildTabView(BuildContext context) {
-    switch (_tabIndex) {
-      case 0:
-        return MenuTab(
-          onOpenCategories: () => _pushPage(
-            CategoryManagerScreen(tasks: _items),
-          ),
-          onUpgradePro: () {
-            _pushPage(const UpgradeProDemoScreen()).then((_) {
-              if (mounted) setState(() {});
-            });
-          },
-          onOpenFavorites: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => FavoriteTaskListScreen(
-                  tasks: _items.where((t) => t.favorite).toList(),
-                ),
+  switch (_tabIndex) {
+    case 0:
+      return MenuTab(
+        onOpenCategories: () => _pushPage(
+          CategoryManagerScreen(tasks: _items),
+        ),
+        onOpenFavorites: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => FavoriteTaskListScreen(
+                tasks: _items.where((t) => t.favorite).toList(),
               ),
-            );
-          },
-        );
-      case 2:
-        return CalendarTab(
-          tasks: _items,
-          onOpenTask: _openTaskDetail,
-          onCreateForDate: _createTaskForDate,
-        );
-      case 3:
-        return MeTab(
-          tasks: _items,
-          onUpgrade: () {
-            _pushPage(const UpgradeProDemoScreen()).then((_) {
-              if (mounted) setState(() {});
-            });
-          },
-        );
-      default:
-        return _buildTasksView(context);
-    }
+            ),
+          );
+        },
+        onUpgradePro: _startUpgradeFlow,
+      );
+
+    case 1:
+      return CalendarTab(
+        tasks: _items,
+        onOpenTask: _openTaskDetail,
+        onCreateForDate: _createTaskForDate,
+      );
+
+    case 2:
+      return MeTab(
+        tasks: _items,
+        onUpgrade: _startUpgradeFlow,
+      );
+
+    default:
+      return _buildTasksView(context);
   }
+}
+
 
   Future<void> _openTaskDetail(Task task) async {
     final detailCopy = task.clone();
