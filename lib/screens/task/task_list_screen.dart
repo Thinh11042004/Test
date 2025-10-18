@@ -612,6 +612,15 @@ class _TaskListScreenState extends State<TaskListScreen> {
               if (mounted) setState(() {});
             });
           },
+          onOpenFavorites: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => FavoriteTaskListScreen(
+                  tasks: _items.where((t) => t.favorite).toList(),
+                ),
+              ),
+            );
+          },
         );
       case 2:
         return CalendarTab(
@@ -1150,6 +1159,41 @@ class _SliverAnimatedSwitcher extends StatelessWidget {
         transitionBuilder: transitionBuilder,
         child: child,
       ),
+    );
+  }
+}
+
+class FavoriteTaskListScreen extends StatelessWidget {
+  final List<Task> tasks;
+  const FavoriteTaskListScreen({required this.tasks, Key? key}) : super(key: key);
+
+  void _openTaskDetail(BuildContext context, Task task) {
+    Navigator.of(context).push(TaskDetailScreen.route(task));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Star Task')),
+      body: tasks.isEmpty
+          ? const Center(child: Text('Không có nhiệm vụ yêu thích.'))
+          : ListView.builder(
+              itemCount: tasks.length,
+              itemBuilder: (context, index) {
+                final task = tasks[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: ListTile(
+                    leading: const Icon(Icons.star, color: Colors.amber),
+                    title: Text(task.title),
+                    subtitle: task.dueDate != null
+                        ? Text('Đến hạn: ${task.dueDate}')
+                        : null,
+                    onTap: () => _openTaskDetail(context, task),
+                  ),
+                );
+              },
+            ),
     );
   }
 }

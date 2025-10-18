@@ -11,7 +11,8 @@ import '../settings/settings_screen.dart';
 class MenuTab extends StatelessWidget {
   final VoidCallback onOpenCategories;
   final VoidCallback onUpgradePro;
-  const MenuTab({super.key, required this.onOpenCategories, required this.onUpgradePro});
+  final VoidCallback? onOpenFavorites;
+  const MenuTab({super.key, required this.onOpenCategories, required this.onUpgradePro, this.onOpenFavorites});
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +82,7 @@ class MenuTab extends StatelessWidget {
               );
             },
           ),
-          item(Icons.star, 'Star Task'),
+          item(Icons.star, 'Star Task', onTap: onOpenFavorites),
           item(
             Icons.cloud_sync,
             'Đồng bộ đám mây Firebase',

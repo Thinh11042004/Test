@@ -25,4 +25,12 @@ class ProManager {
     await prefs.remove(_kPro);
     isPro.value = false;
   }
+
+  Future<void> resetPro() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kPro, false);
+    isPro.value = false;
+  }
+
+   
 }

@@ -143,7 +143,10 @@ class _MeTabState extends State<MeTab> {
                   ? IconButton(
                       tooltip: 'Đăng xuất',
                       icon: const Icon(Icons.logout),
-                      onPressed: () => AuthService.instance.signOut(),
+                      onPressed: () async {
+                        await AuthService.instance.signOut();
+                        await ProManager.instance.resetPro();
+                      },
                     )
                   : null,
             );
