@@ -4,8 +4,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'services/notification_service.dart';
 import 'services/pro_manager.dart';
-import 'screens/task_list_screen.dart';
-import 'screens/task_templates_screen.dart';
+import 'screens/task/task_list_screen.dart';
+import 'screens/task/task_templates_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
