@@ -12,6 +12,7 @@ class TaskEntity {
   final bool favorite;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final List<SubTaskEntity> subtasks;
 
   const TaskEntity({
     this.id,
@@ -24,6 +25,7 @@ class TaskEntity {
     this.categoryId,
     this.tags = const [],
     this.favorite = false,
+    this.subtasks = const [],
     required this.createdAt,
     required this.updatedAt,
   });
@@ -41,6 +43,7 @@ class TaskEntity {
     bool? favorite,
     DateTime? createdAt,
     DateTime? updatedAt,
+    List<SubTaskEntity>? subtasks,
   }) {
     return TaskEntity(
       id: id ?? this.id,
@@ -55,6 +58,26 @@ class TaskEntity {
       favorite: favorite ?? this.favorite,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      subtasks: subtasks ?? this.subtasks,
     );
   }
+}
+
+class SubTaskEntity {
+  final String title;
+  final bool done;
+
+  const SubTaskEntity({required this.title, this.done = false});
+
+  factory SubTaskEntity.fromMap(Map<String, dynamic> map) {
+    return SubTaskEntity(
+      title: (map['title'] as String?)?.trim() ?? '',
+      done: map['done'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'title': title,
+        'done': done,
+      };
 }
