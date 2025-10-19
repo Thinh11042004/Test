@@ -1,0 +1,21 @@
+{
+  "name": "ai-integrated-hrms-ats",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:docker": "docker compose -f infra/docker/docker-compose.dev.yml up -d",
+    "down:docker": "docker compose -f infra/docker/docker-compose.dev.yml down",
+    "ps:docker": "docker compose -f infra/docker/docker-compose.dev.yml ps",
+    "dev:web": "pnpm --filter web dev",
+    "dev:api": "pnpm --filter api-gateway dev",
+    "dev:worker": "pnpm --filter worker dev"
+  },
+  "devDependencies": {
+    "turbo": "^2.1.3",
+    "typescript": "^5.6.3"
+  }
+}

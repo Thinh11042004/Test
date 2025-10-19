@@ -1,0 +1,689 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CompanySizeBucket {
+  STARTUP
+  GROWTH
+  MID_MARKET
+  ENTERPRISE
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  TEMPORARY
+  INTERN
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  ONBOARDING
+  LEAVE
+  TERMINATED
+}
+
+enum WorkArrangement {
+  ONSITE
+  REMOTE
+  HYBRID
+}
+
+enum SeniorityLevel {
+  INTERN
+  JUNIOR
+  MID
+  SENIOR
+  LEAD
+  PRINCIPAL
+  DIRECTOR
+  VICE_PRESIDENT
+  EXECUTIVE
+}
+
+enum PayFrequency {
+  ANNUAL
+  MONTHLY
+  HOURLY
+}
+
+enum ProficiencyLevel {
+  FOUNDATION
+  WORKING
+  ADVANCED
+  EXPERT
+}
+
+enum CandidateSource {
+  REFERRAL
+  AGENCY
+  JOB_BOARD
+  CAREER_SITE
+  SOCIAL
+  INTERNAL
+  OTHER
+}
+
+enum CandidateStatus {
+  NEW
+  PROSPECT
+  SCREENING
+  INTERVIEW
+  OFFER
+  HIRED
+  ARCHIVED
+}
+
+enum JobStatus {
+  DRAFT
+  OPEN
+  ON_HOLD
+  CLOSED
+  FILLED
+  ARCHIVED
+}
+
+enum RequirementType {
+  MUST_HAVE
+  NICE_TO_HAVE
+  RESPONSIBILITY
+  TOOLING
+}
+
+enum RequirementPriority {
+  CORE
+  IMPORTANT
+  OPTIONAL
+}
+
+enum ApplicationStatus {
+  APPLIED
+  SCREEN
+  INTERVIEW
+  OFFER
+  HIRED
+  REJECTED
+  WITHDRAWN
+}
+
+enum InterviewStage {
+  INTRO
+  TECHNICAL
+  MANAGER
+  PANEL
+  FINAL
+  DEBRIEF
+  OTHER
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+}
+
+enum HiringRecommendation {
+  STRONG_HIRE
+  HIRE
+  LEANING_HIRE
+  NEUTRAL
+  LEANING_NO
+  NO_HIRE
+}
+
+enum BenefitCategory {
+  HEALTH
+  WELLNESS
+  TIME_OFF
+  FINANCIAL
+  LIFESTYLE
+  EQUITY
+  DEVELOPMENT
+  OTHER
+}
+
+enum BenefitEnrollmentStatus {
+  ACTIVE
+  PENDING
+  CANCELLED
+  EXPIRED
+}
+
+enum NoteVisibility {
+  INTERNAL
+  SHARED
+  CONFIDENTIAL
+}
+
+enum EducationLevel {
+  HIGH_SCHOOL
+  ASSOCIATE
+  BACHELOR
+  MASTER
+  DOCTORATE
+  BOOTCAMP
+  OTHER
+}
+
+enum CompensationChangeReason {
+  MERIT
+  PROMOTION
+  MARKET_ADJUSTMENT
+  COST_OF_LIVING
+  CORRECTION
+  OTHER
+}
+
+model Company {
+  id            String           @id @default(cuid())
+  name          String
+  slug          String           @unique
+  industry      String
+  description   String?
+  website       String?
+  linkedinUrl   String?
+  logoUrl       String?
+  sizeBucket    CompanySizeBucket
+  headquartersId String?
+  foundedYear   Int?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  headquarters  Location?        @relation("CompanyHeadquarters", fields: [headquartersId], references: [id], onDelete: SetNull)
+  departments   Department[]
+  employees     Employee[]
+  salaryBands   SalaryBand[]
+  jobPostings   JobPosting[]
+  benefits      Benefit[]
+  offices       CompanyOffice[]
+}
+
+model Location {
+  id          String           @id @default(cuid())
+  label       String           @unique
+  addressLine1 String?
+  addressLine2 String?
+  city        String
+  state       String?
+  country     String
+  postalCode  String?
+  timezone    String?
+  latitude    Float?
+  longitude   Float?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  offices     CompanyOffice[]
+  employees   Employee[]
+  jobPostings JobPosting[]
+  candidates  Candidate[]
+  companies   Company[]        @relation("CompanyHeadquarters")
+}
+
+model CompanyOffice {
+  id         String   @id @default(cuid())
+  companyId  String
+  locationId String
+  name       String
+  headcount  Int?     @default(0)
+  openedAt   DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  employees  Employee[]
+  jobPostings JobPosting[]
+
+  @@unique([companyId, name])
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  companyId   String
+  name        String
+  description String?
+  costCenter  String?
+  budget      Decimal? @db.Decimal(12, 2)
+  headId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  head        Employee? @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
+  employees   Employee[]
+  jobPostings JobPosting[]
+
+  @@unique([companyId, name])
+}
+
+model SalaryBand {
+  id          String        @id @default(cuid())
+  companyId   String
+  code        String
+  title       String
+  level       SeniorityLevel
+  minComp     Decimal       @db.Decimal(12, 2)
+  maxComp     Decimal       @db.Decimal(12, 2)
+  currency    String        @default("USD")
+  payFrequency PayFrequency @default(ANNUAL)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  company     Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employees   Employee[]
+  jobPostings JobPosting[]
+
+  @@unique([companyId, code])
+}
+
+model Employee {
+  id             String            @id @default(cuid())
+  employeeCode   String            @unique
+  companyId      String
+  departmentId   String
+  officeId       String?
+  locationId     String?
+  salaryBandId   String?
+  managerId      String?
+  firstName      String?
+  lastName       String?
+  fullName       String
+  preferredName  String?
+  email          String            @unique
+  phone          String?
+  jobTitle       String
+  seniority      SeniorityLevel
+  employmentType EmploymentType
+  status         EmploymentStatus  @default(ACTIVE)
+  workArrangement WorkArrangement  @default(HYBRID)
+  hireDate       DateTime
+  terminationDate DateTime?
+  annualSalary   Decimal?          @db.Decimal(12, 2)
+  currency       String?           @default("USD")
+  performanceSummary String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  company        Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  department     Department        @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  office         CompanyOffice?    @relation(fields: [officeId], references: [id], onDelete: SetNull)
+  location       Location?         @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  salaryBand     SalaryBand?       @relation(fields: [salaryBandId], references: [id], onDelete: SetNull)
+  manager        Employee?         @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
+  directReports  Employee[]        @relation("EmployeeManager")
+  headedDepartments Department[]   @relation("DepartmentHead")
+  performanceReviews PerformanceReview[]
+  compensationReviews CompensationReview[]
+  skills         EmployeeSkill[]
+  benefitEnrollments BenefitEnrollment[]
+  recruitingApplications JobApplication[] @relation("ApplicationRecruiter")
+  referralsProvided      JobApplication[] @relation("ApplicationReferrer")
+  reviewsAuthored        PerformanceReview[] @relation("ReviewReviewer")
+  interviewFeedbackGiven InterviewFeedback[] @relation("FeedbackInterviewer")
+  notesAuthored          CandidateNote[]     @relation("NoteAuthor")
+}
+
+model EmployeeSkill {
+  id             String           @id @default(cuid())
+  employeeId     String
+  skillId        String
+  proficiency    ProficiencyLevel
+  primary        Boolean          @default(false)
+  yearsExperience Int?
+  lastUsed       DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  employee       Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  skill          Skill            @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, skillId])
+}
+
+model Skill {
+  id              String           @id @default(cuid())
+  name            String           @unique
+  category        String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  employeeSkills  EmployeeSkill[]
+  candidateSkills CandidateSkill[]
+  jobRequirements JobRequirement[]
+}
+
+model PerformanceReview {
+  id               String    @id @default(cuid())
+  employeeId       String
+  reviewerId       String?
+  reviewPeriod     String
+  reviewDate       DateTime
+  overallScore     Int
+  performanceScore Int
+  potentialScore   Int
+  engagementScore  Int
+  achievements     String[]
+  focusAreas       String[]
+  recommendations  String[]
+  summary          String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  employee         Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  reviewer         Employee? @relation("ReviewReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+}
+
+model CompensationReview {
+  id            String    @id @default(cuid())
+  employeeId    String
+  effectiveDate DateTime
+  previousSalary Decimal? @db.Decimal(12, 2)
+  newSalary     Decimal?  @db.Decimal(12, 2)
+  currency      String?   @default("USD")
+  reason        CompensationChangeReason
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  employee      Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model Candidate {
+  id                 String          @id @default(cuid())
+  candidateCode      String          @unique
+  fullName           String
+  firstName          String?
+  lastName           String?
+  email              String?         @unique
+  phone              String?
+  headline           String?
+  desiredRole        String?
+  currentCompany     String?
+  currentTitle       String?
+  status             CandidateStatus @default(NEW)
+  source             CandidateSource @default(OTHER)
+  totalExperienceYears Float?
+  noticePeriodDays   Int?
+  salaryExpectation  Decimal?        @db.Decimal(12, 2)
+  currency           String?         @default("USD")
+  locationId         String?
+  openToRemote       Boolean         @default(true)
+  openToRelocation   Boolean         @default(false)
+  resumeUrl          String?
+  linkedinUrl        String?
+  githubUrl          String?
+  portfolioUrl       String?
+  resumeHighlights   String[]        @default([])
+  summary            String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  location           Location?       @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  skills             CandidateSkill[]
+  experiences        CandidateExperience[]
+  educations         CandidateEducation[]
+  applications       JobApplication[]
+  notes              CandidateNote[]
+}
+
+model CandidateSkill {
+  id              String           @id @default(cuid())
+  candidateId     String
+  skillId         String
+  proficiency     ProficiencyLevel
+  primary         Boolean          @default(false)
+  yearsExperience Int?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  candidate       Candidate        @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  skill           Skill            @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([candidateId, skillId])
+}
+
+model CandidateExperience {
+  id              String    @id @default(cuid())
+  candidateId     String
+  companyName     String
+  title           String
+  startDate       DateTime
+  endDate         DateTime?
+  responsibilities String[]
+  achievements    String[]
+  technologies    String[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  candidate       Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+}
+
+model CandidateEducation {
+  id           String        @id @default(cuid())
+  candidateId  String
+  institution  String
+  fieldOfStudy String?
+  level        EducationLevel
+  startDate    DateTime?
+  endDate      DateTime?
+  description  String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  candidate    Candidate     @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+}
+
+model CandidateNote {
+  id            String         @id @default(cuid())
+  candidateId   String
+  applicationId String?
+  authorId      String?
+  visibility    NoteVisibility @default(INTERNAL)
+  content       String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  candidate     Candidate      @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  application   JobApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  author        Employee?      @relation("NoteAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+}
+
+model JobPosting {
+  id             String          @id @default(cuid())
+  jobCode        String          @unique
+  companyId      String
+  departmentId   String
+  hiringManagerId String?
+  recruiterId    String?
+  officeId       String?
+  locationId     String?
+  title          String
+  description    String
+  status         JobStatus       @default(DRAFT)
+  level          SeniorityLevel
+  employmentType EmploymentType
+  workArrangement WorkArrangement @default(HYBRID)
+  travelRequirement String?
+  locations      String[]        @default([])
+  openings       Int             @default(1)
+  salaryMin      Decimal?        @db.Decimal(12, 2)
+  salaryMax      Decimal?        @db.Decimal(12, 2)
+  currency       String?         @default("USD")
+  salaryBandId   String?
+  publishedAt    DateTime?
+  closesAt       DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  company        Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  department     Department      @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  hiringManager  Employee?       @relation("JobHiringManager", fields: [hiringManagerId], references: [id], onDelete: SetNull)
+  recruiter      Employee?       @relation("JobRecruiter", fields: [recruiterId], references: [id], onDelete: SetNull)
+  office         CompanyOffice?  @relation(fields: [officeId], references: [id], onDelete: SetNull)
+  location       Location?       @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  salaryBand     SalaryBand?     @relation(fields: [salaryBandId], references: [id], onDelete: SetNull)
+  requirements   JobRequirement[]
+  benefits       JobPostingBenefit[]
+  applications   JobApplication[]
+}
+
+model JobRequirement {
+  id          String            @id @default(cuid())
+  jobId       String
+  skillId     String?
+  type        RequirementType
+  priority    RequirementPriority @default(CORE)
+  description String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  job         JobPosting        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  skill       Skill?            @relation(fields: [skillId], references: [id], onDelete: SetNull)
+}
+
+model Benefit {
+  id           String       @id @default(cuid())
+  companyId    String
+  name         String
+  category     BenefitCategory
+  description  String?
+  eligibility  String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  company      Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  enrollments  BenefitEnrollment[]
+  jobBenefits  JobPostingBenefit[]
+
+  @@unique([companyId, name])
+}
+
+model BenefitEnrollment {
+  id           String        @id @default(cuid())
+  employeeId   String
+  benefitId    String
+  status       BenefitEnrollmentStatus @default(ACTIVE)
+  effectiveDate DateTime
+  endDate      DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  employee     Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  benefit      Benefit       @relation(fields: [benefitId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, benefitId, effectiveDate])
+}
+
+model JobPostingBenefit {
+  id         String   @id @default(cuid())
+  jobId      String
+  benefitId  String
+  highlight  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  job        JobPosting @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  benefit    Benefit    @relation(fields: [benefitId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, benefitId])
+}
+
+model JobApplication {
+  id              String           @id @default(cuid())
+  applicationCode String           @unique
+  jobId           String
+  candidateId     String
+  status          ApplicationStatus @default(APPLIED)
+  source          CandidateSource   @default(OTHER)
+  resumeUrl       String?
+  coverLetter     String?
+  salaryExpectation Decimal?        @db.Decimal(12, 2)
+  currency        String?           @default("USD")
+  availabilityDate DateTime?
+  referredById    String?
+  recruiterId     String?
+  submittedAt     DateTime          @default(now())
+  lastAdvancedAt  DateTime?
+  notes           String?
+  matchScore      Int?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  job             JobPosting        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidate       Candidate         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  referredBy      Employee?         @relation("ApplicationReferrer", fields: [referredById], references: [id], onDelete: SetNull)
+  recruiter       Employee?         @relation("ApplicationRecruiter", fields: [recruiterId], references: [id], onDelete: SetNull)
+  interviews      Interview[]
+  stageHistory    ApplicationStageHistory[]
+  feedback        InterviewFeedback[]
+  notes           CandidateNote[]
+}
+
+model ApplicationStageHistory {
+  id            String            @id @default(cuid())
+  applicationId String
+  status        ApplicationStatus
+  stage         InterviewStage?
+  changedAt     DateTime          @default(now())
+  changedById   String?
+  comment       String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  application   JobApplication    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  changedBy     Employee?         @relation(fields: [changedById], references: [id], onDelete: SetNull)
+}
+
+model Interview {
+  id            String          @id @default(cuid())
+  applicationId String
+  stage         InterviewStage
+  scheduledAt   DateTime
+  endAt         DateTime?
+  interviewers  String[]
+  location      String?
+  meetingLink   String?
+  status        InterviewStatus @default(SCHEDULED)
+  notes         String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  application   JobApplication  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  feedback      InterviewFeedback[]
+}
+
+model InterviewFeedback {
+  id             String               @id @default(cuid())
+  interviewId    String
+  interviewerName String
+  interviewerId  String?
+  rating         Int
+  strengths      String[]
+  concerns       String[]
+  recommendation HiringRecommendation
+  summary        String?
+  submittedAt    DateTime             @default(now())
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  interview      Interview            @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  interviewer    Employee?            @relation("FeedbackInterviewer", fields: [interviewerId], references: [id], onDelete: SetNull)
+}
+
+model AdminUser {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      String   @default("admin")
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

@@ -1,0 +1,36 @@
+# ROOT .dockerignore
+Set-Content -Encoding utf8 -Path .\.dockerignore -Value @"
+# ignore massive / weird-perm content
+node_modules
+**/node_modules
+pnpm-lock.yaml
+.git
+.gitignore
+**/.next
+**/dist
+**/.turbo
+.env
+.DS_Store
+"@
+
+# apps/web/.dockerignore
+Set-Content -Encoding utf8 -Path .\apps\web\.dockerignore -Value @"
+node_modules
+.next
+dist
+.env
+"@
+
+# apps/api-gateway/.dockerignore
+Set-Content -Encoding utf8 -Path .\apps\api-gateway\.dockerignore -Value @"
+node_modules
+dist
+.env
+"@
+
+# apps/worker/.dockerignore
+Set-Content -Encoding utf8 -Path .\apps\worker\.dockerignore -Value @"
+node_modules
+dist
+.env
+"@
