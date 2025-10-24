@@ -1,121 +1,16 @@
-<<<<<<< ours
-const candidateService = require('../services/candidateService');
-
-class CandidateController {
-  async getAllCandidates(req, res) {
-    try {
-      const candidates = await candidateService.listCandidates({
-        search: req.query.search,
-        status: req.query.status,
-        skills: req.query.skills
-      });
-
-      res.json({ success: true, data: candidates });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
-    }
-  }
-
-  async getCandidateById(req, res) {
-    try {
-      const candidate = await candidateService.getCandidateById(req.params.id);
-
-      if (!candidate) {
-        return res.status(404).json({ success: false, error: 'Candidate not found' });
-      }
-
-      res.json({ success: true, data: candidate });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
-    }
-  }
-
-  async createCandidate(req, res) {
-    try {
-      const candidate = await candidateService.createCandidate(req.body);
-
-      res.status(201).json({
-        success: true,
-        data: candidate,
-        message: 'Candidate created successfully'
-      });
-    } catch (error) {
-      res.status(400).json({ success: false, error: error.message });
-    }
-  }
-
-  async updateCandidate(req, res) {
-    try {
-      const candidate = await candidateService.updateCandidate(req.params.id, req.body);
-
-      if (!candidate) {
-        return res.status(404).json({ success: false, error: 'Candidate not found' });
-      }
-
-      res.json({ success: true, data: candidate, message: 'Candidate updated successfully' });
-    } catch (error) {
-      res.status(400).json({ success: false, error: error.message });
-    }
-  }
-
-  async deleteCandidate(req, res) {
-    try {
-      await candidateService.deleteCandidate(req.params.id);
-      res.json({ success: true, message: 'Candidate deleted successfully' });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
-    }
-  }
-
-  async uploadResume(req, res) {
-    try {
-      const candidate = await candidateService.uploadResume(req.params.id, req.body);
-      res.json({ success: true, data: candidate });
-    } catch (error) {
-      res.status(400).json({ success: false, error: error.message });
-    }
-  }
-
-  async getCandidateJobs(req, res) {
-    try {
-      const jobs = await candidateService.getCandidateJobs(req.params.id);
-      res.json({ success: true, data: jobs });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
-    }
-  }
-
-  async parseCV(req, res) {
-    try {
-      const parsedData = await candidateService.parseCV(req.params.id, req.body.cvText);
-      res.json({ success: true, data: parsedData });
-    } catch (error) {
-      res.status(400).json({ success: false, error: error.message });
-    }
-  }
-
-  async getCandidateAnalytics(req, res) {
-    try {
-      const analytics = await candidateService.getCandidateAnalytics(req.params.id);
-      res.json({ success: true, data: analytics });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
-    }
-  }
-}
-
-module.exports = new CandidateController();
-=======
-const employeeService = require('../services/employeeService');
+// Employee Controller for managing employee records
+// This provides CRUD operations for employees and employee-related data
 
 class EmployeeController {
   async list(req, res) {
     try {
-      const employees = await employeeService.listEmployees({
-        search: req.query.search,
-        departmentId: req.query.departmentId
+      // TODO: Implement employee service
+      // For now, return mock data
+      res.json({ 
+        success: true, 
+        data: [],
+        message: 'Employee list endpoint - implementation pending'
       });
-      res.json({ success: true, data: employees });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
     }
@@ -123,12 +18,13 @@ class EmployeeController {
 
   async get(req, res) {
     try {
-      const employee = await employeeService.getEmployeeById(req.params.id);
-      if (!employee) {
-        return res.status(404).json({ success: false, error: 'Employee not found' });
-      }
-
-      res.json({ success: true, data: employee });
+      const { id } = req.params;
+      // TODO: Implement employee retrieval
+      res.json({ 
+        success: true, 
+        data: { id },
+        message: 'Employee get endpoint - implementation pending'
+      });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
     }
@@ -136,8 +32,12 @@ class EmployeeController {
 
   async create(req, res) {
     try {
-      const employee = await employeeService.createEmployee(req.body);
-      res.status(201).json({ success: true, data: employee });
+      // TODO: Implement employee creation
+      res.status(201).json({
+        success: true,
+        data: req.body,
+        message: 'Employee create endpoint - implementation pending'
+      });
     } catch (error) {
       res.status(400).json({ success: false, error: error.message });
     }
@@ -145,12 +45,13 @@ class EmployeeController {
 
   async update(req, res) {
     try {
-      const employee = await employeeService.updateEmployee(req.params.id, req.body);
-      if (!employee) {
-        return res.status(404).json({ success: false, error: 'Employee not found' });
-      }
-
-      res.json({ success: true, data: employee });
+      const { id } = req.params;
+      // TODO: Implement employee update
+      res.json({ 
+        success: true, 
+        data: { id, ...req.body },
+        message: 'Employee update endpoint - implementation pending'
+      });
     } catch (error) {
       res.status(400).json({ success: false, error: error.message });
     }
@@ -158,8 +59,12 @@ class EmployeeController {
 
   async remove(req, res) {
     try {
-      await employeeService.deleteEmployee(req.params.id);
-      res.json({ success: true, message: 'Employee deleted successfully' });
+      const { id } = req.params;
+      // TODO: Implement employee deletion
+      res.json({ 
+        success: true, 
+        message: `Employee ${id} delete endpoint - implementation pending`
+      });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
     }
@@ -167,12 +72,13 @@ class EmployeeController {
 
   async performance(req, res) {
     try {
-      const performance = await employeeService.getEmployeePerformance(req.params.id);
-      if (!performance) {
-        return res.status(404).json({ success: false, error: 'Employee not found' });
-      }
-
-      res.json({ success: true, data: performance });
+      const { id } = req.params;
+      // TODO: Implement employee performance retrieval
+      res.json({ 
+        success: true, 
+        data: { id },
+        message: 'Employee performance endpoint - implementation pending'
+      });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
     }
@@ -180,4 +86,3 @@ class EmployeeController {
 }
 
 module.exports = new EmployeeController();
->>>>>>> theirs

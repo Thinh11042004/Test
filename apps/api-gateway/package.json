@@ -11,7 +11,7 @@
     "db:seed": "prisma db seed"
   },
   "dependencies": {
-    "@prisma/client": "^5.9.1",
+    "@prisma/client": "^6.18.0",
     "axios": "^1.6.7",
     "cors": "^2.8.5",
     "date-fns": "^2.30.0",
@@ -26,15 +26,18 @@
     "redis": "^4.6.10"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2",
     "jest": "^29.7.0",
-    "supertest": "^6.3.3",
-    "prisma": "^5.9.1"
+    "nodemon": "^3.0.2",
+    "prisma": "^6.18.0",
+    "supertest": "^6.3.3"
   },
-  "prisma": {
-    "seed": "node prisma/seed.js"
-  },
-  "keywords": ["hrms", "ai", "recruitment", "nodejs", "express"],
+  "keywords": [
+    "hrms",
+    "ai",
+    "recruitment",
+    "nodejs",
+    "express"
+  ],
   "author": "Your Name",
   "license": "MIT"
 }

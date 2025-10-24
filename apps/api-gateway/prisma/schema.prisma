@@ -329,6 +329,9 @@ model Employee {
   reviewsAuthored        PerformanceReview[] @relation("ReviewReviewer")
   interviewFeedbackGiven InterviewFeedback[] @relation("FeedbackInterviewer")
   notesAuthored          CandidateNote[]     @relation("NoteAuthor")
+  jobsAsHiringManager    JobPosting[]        @relation("JobHiringManager")
+  jobsAsRecruiter        JobPosting[]        @relation("JobRecruiter")
+  stageChanges           ApplicationStageHistory[]
 }
 
 model EmployeeSkill {
@@ -612,7 +615,6 @@ model JobApplication {
   recruiterId     String?
   submittedAt     DateTime          @default(now())
   lastAdvancedAt  DateTime?
-  notes           String?
   matchScore      Int?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
@@ -663,6 +665,7 @@ model Interview {
 model InterviewFeedback {
   id             String               @id @default(cuid())
   interviewId    String
+  applicationId  String?
   interviewerName String
   interviewerId  String?
   rating         Int
@@ -676,6 +679,7 @@ model InterviewFeedback {
 
   interview      Interview            @relation(fields: [interviewId], references: [id], onDelete: Cascade)
   interviewer    Employee?            @relation("FeedbackInterviewer", fields: [interviewerId], references: [id], onDelete: SetNull)
+  application    JobApplication?      @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 }
 
 model AdminUser {

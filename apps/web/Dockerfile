@@ -1,20 +1,57 @@
+# Multi-stage build for production
 FROM node:20-alpine AS base
-WORKDIR /repo/apps/web
 
-# Copy package files
-COPY apps/web/package.json ./
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+
+WORKDIR /app
+
+# Copy workspace files
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY apps/web/package.json ./apps/web/
 
 # Install dependencies
-RUN npm install
+RUN pnpm install --frozen-lockfile
 
-# Copy source code
-COPY apps/web/src ./src
-COPY apps/web/public ./public
-COPY apps/web/index.html ./
-COPY apps/web/vite.config.js ./
+# Development stage
+FROM base AS development
+
+WORKDIR /app
+
+# Copy all source code
+COPY apps/web ./apps/web
+
+# Set working directory to web app
+WORKDIR /app/apps/web
 
 # Expose port
 EXPOSE 3000
 
-# Start the application
-CMD ["npm", "run", "dev", "--", "--host"]
+# Start dev server
+CMD ["pnpm", "dev", "--host"]
+
+# Build stage
+FROM base AS builder
+
+WORKDIR /app
+
+# Copy source code
+COPY apps/web ./apps/web
+
+WORKDIR /app/apps/web
+
+# Build the application
+RUN pnpm build
+
+# Production stage
+FROM nginx:alpine AS production
+
+# Copy built files
+COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
+
+# Copy nginx configuration
+COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

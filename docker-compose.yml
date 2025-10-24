@@ -1,136 +1,245 @@
-version: '3.9'
+﻿version: '3.9'
 
 services:
+  # ===== Infrastructure Services =====
+  
   postgres:
     image: pgvector/pgvector:pg16
+    container_name: hrms-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: hrms
-      POSTGRES_PASSWORD: hrms
-      POSTGRES_DB: hrms
+      POSTGRES_USER: ${POSTGRES_USER:-hrms}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hrms}
+      POSTGRES_DB: ${POSTGRES_DB:-hrms}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hrms -d hrms"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hrms} -d ${POSTGRES_DB:-hrms}"]
+      interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 5
+      start_period: 10s
     volumes:
       - ./infra/docker/services/postgres/init:/docker-entrypoint-initdb.d:ro
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - hrms-network
 
   redis:
-    image: redis:7
+    image: redis:7-alpine
+    container_name: hrms-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - redis-data:/data
+    networks:
+      - hrms-network
 
   minio:
     image: quay.io/minio/minio:latest
+    container_name: hrms-minio
+    restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: devminio
-      MINIO_ROOT_PASSWORD: devminiosecret
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-devminio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-devminiosecret}
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
     volumes:
-      - minio:/data
+      - minio-data:/data
+    networks:
+      - hrms-network
 
   meilisearch:
     image: getmeili/meilisearch:v1.8
+    container_name: hrms-meilisearch
+    restart: unless-stopped
     environment:
-      MEILI_ENV: development
-      MEILI_MASTER_KEY: devkey
+      MEILI_ENV: ${MEILI_ENV:-development}
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-devkey}
+      MEILI_NO_ANALYTICS: "true"
     ports:
-      - "7700:7700"
+      - "${MEILI_PORT:-7700}:7700"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    volumes:
+      - meilisearch-data:/meili_data
+    networks:
+      - hrms-network
+
+  # ===== Application Services =====
 
   ai-service:
     build:
       context: .
       dockerfile: apps/ai-service/Dockerfile
-    working_dir: /workspace/apps/ai-service
+      target: development
+    container_name: hrms-ai-service
+    restart: unless-stopped
     environment:
       PORT: 8000
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openrouter/anthropic/claude-3.5-sonnet}
       OPENROUTER_TITLE: ${OPENROUTER_TITLE:-NovaPeople AI Service}
       OPENROUTER_REFERRER: ${OPENROUTER_REFERRER:-https://example.com}
+      VECTOR_STORE_PATH: /workspace/data/vectorstore
+      EMBEDDINGS_PATH: /workspace/data/embeddings
     ports:
-      - "8000:8000"
+      - "${AI_SERVICE_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     volumes:
       - ./apps/ai-service:/workspace/apps/ai-service:rw
+      - ./data/embeddings:/workspace/data/embeddings:rw
+      - ai-vectorstore:/workspace/data/vectorstore
+    networks:
+      - hrms-network
     command: ["python", "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
   api-gateway:
     build:
       context: .
       dockerfile: apps/api-gateway/Dockerfile
-    working_dir: /workspace/apps/api-gateway
+      target: development
+    container_name: hrms-api-gateway
+    restart: unless-stopped
     environment:
       NODE_ENV: development
       PORT: 4000
-      DATABASE_URL: postgresql://hrms:hrms@postgres:5432/hrms
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://${POSTGRES_USER:-hrms}:${POSTGRES_PASSWORD:-hrms}@postgres:5432/${POSTGRES_DB:-hrms}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-}@redis:6379
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-devminio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-devminiosecret}
+      MINIO_USE_SSL: "false"
       MEILI_HOST: http://meilisearch:7700
-      MEILI_MASTER_KEY: devkey
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-devkey}
       AI_SERVICE_URL: http://ai-service:8000
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production}
       API_AUTH_TOKEN: ${API_AUTH_TOKEN:-local-dev-token}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
     ports:
-      - "4000:4000"
+      - "${API_GATEWAY_PORT:-4000}:4000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     depends_on:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
       ai-service:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - ./apps/api-gateway:/workspace/apps/api-gateway:rw
       - api_gateway_node_modules:/workspace/apps/api-gateway/node_modules
-    command: ["npm", "run", "dev"]
+      - ./data:/workspace/data:rw
+    networks:
+      - hrms-network
+    command: ["sh", "-c", "npx prisma db push && npx prisma db seed && pnpm dev"]
 
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    working_dir: /workspace/apps/web
+      target: development
+    container_name: hrms-web
+    restart: unless-stopped
     environment:
       PORT: 3000
-      VITE_API_URL: http://localhost:4000
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:4000}
       VITE_API_AUTH_TOKEN: ${API_AUTH_TOKEN:-local-dev-token}
     ports:
-      - "3000:3000"
+      - "${WEB_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     depends_on:
       api-gateway:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - ./apps/web:/workspace/apps/web:rw
       - web_node_modules:/workspace/apps/web/node_modules
-    command: ["npm", "run", "dev", "--", "--host"]
+    networks:
+      - hrms-network
+    command: ["pnpm", "dev", "--host"]
 
   worker:
     build:
       context: .
       dockerfile: apps/worker/Dockerfile
-    working_dir: /workspace/apps/worker
+      target: dev
+    container_name: hrms-worker
+    restart: unless-stopped
     environment:
       NODE_ENV: development
-      DATABASE_URL: postgresql://hrms:hrms@postgres:5432/hrms
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://${POSTGRES_USER:-hrms}:${POSTGRES_PASSWORD:-hrms}@postgres:5432/${POSTGRES_DB:-hrms}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-}@redis:6379
     depends_on:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
+      api-gateway:
+        condition: service_healthy
     volumes:
-      - ./apps/worker:/workspace/apps/worker:rw
-      - worker_node_modules:/workspace/apps/worker/node_modules
+      - ./apps/worker:/repo/apps/worker:rw
+      - worker_node_modules:/repo/apps/worker/node_modules
+    networks:
+      - hrms-network
     command: ["pnpm", "dev"]
+
+networks:
+  hrms-network:
+    driver: bridge
+    name: hrms-network
 
 volumes:
   pgdata:
-  minio:
+    driver: local
+  redis-data:
+    driver: local
+  minio-data:
+    driver: local
+  meilisearch-data:
+    driver: local
+  ai-vectorstore:
+    driver: local
   api_gateway_node_modules:
+    driver: local
   web_node_modules:
+    driver: local
   worker_node_modules:
+    driver: local

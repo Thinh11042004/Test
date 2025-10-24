@@ -74,8 +74,7 @@ Below is the high-level project structure (application bundles omit generated ar
 │   └── docker/
 │       ├── docker-compose.yml              # Base stack (override with profiles)
 │       ├── docker-compose.dev.yml          # Full dev stack with hot reload
-│       ├── docker-compose.prod.yml         # Production-leaning build targets
-│       ├── docker-compose.node-react.yml   # Lightweight web+api environment
+│       ├── .env.docker
 │       └── services/
 │           └── postgres/
 │               └── init/                   # SQL/seed scripts executed at boot
@@ -89,6 +88,83 @@ Below is the high-level project structure (application bundles omit generated ar
 ```
 
 ## Quick Start: Fully Containerized Development
+> **Requirements:** Docker Desktop (macOS/Windows) hoặc Docker Engine + Docker Compose (Linux). Không cần cài đặt Node.js, Python, hay PNPM khi sử dụng Docker.
+
+### 🚀 Option 1: Bootstrap Script (Khuyến nghị)
+
+**Windows (PowerShell):**
+```powershell
+.\scripts\bootstrap-docker.ps1
+```
+
+**Linux/Mac (Bash):**
+```bash
+chmod +x scripts/bootstrap-docker.sh
+./scripts/bootstrap-docker.sh
+```
+
+Script sẽ tự động:
+- ✅ Kiểm tra Docker installation
+- ✅ Tạo file `.env` từ `.env.example`
+- ✅ Pull images và build containers
+- ✅ Khởi động tất cả services với health checks
+- ✅ Hiển thị status và URLs
+
+### 🛠️ Option 2: Manual Docker Compose
+
+1. **Clone và cấu hình**
+   ```bash
+   git clone <repository-url>
+   cd AI-Integrated-Human-Resource-and-Recruitment-Management-System
+   
+   # Copy và cập nhật .env
+   cp .env.example .env
+   # Edit .env với API keys và passwords của bạn
+   ```
+
+2. **Start Development Stack**
+   ```bash
+   docker compose up -d --build
+   ```
+
+3. **Access Services**
+   - 📊 **Web Dashboard** → http://localhost:3000
+   - 🔌 **API Gateway** → http://localhost:4000 (health: `/healthz`)
+   - 🤖 **AI Service** → http://localhost:8000 (health: `/health`)
+   - 📦 **MinIO Console** → http://localhost:9001 (user: `devminio`, password: `devminiosecret`)
+   - 🔍 **Meilisearch** → http://localhost:7700 (master key: `devkey`)
+   - 🐘 **PostgreSQL** → localhost:5432
+   - 🔴 **Redis** → localhost:6379
+
+4. **View Logs**
+   ```bash
+   # All services
+   docker compose logs -f
+   
+   # Specific service
+   docker compose logs -f api-gateway
+   ```
+
+5. **Stop Services**
+   ```bash
+   docker compose down
+   
+   # With volume cleanup
+   docker compose down -v
+   ```
+
+### 📚 Detailed Documentation
+
+Xem hướng dẫn chi tiết tại **[docs/DOCKER.md](docs/DOCKER.md)** cho:
+- ✅ Production deployment
+- ✅ Troubleshooting guide
+- ✅ Database backup/restore
+- ✅ Health monitoring
+- ✅ Security best practices
+- ✅ Advanced configuration
+
+### 🎯 Running Without Docker (Optional)
+
 > **Requirements:** Install Docker Desktop (macOS/Windows) or Docker Engine + Docker Compose Plugin (Linux). No Node.js, Python, or PNPM installation is required when following the Docker workflow.
 
 1. **Clone the repository**
@@ -101,6 +177,11 @@ Below is the high-level project structure (application bundles omit generated ar
    docker compose -f infra/docker/docker-compose.dev.yml up -d
    ```
    The Compose file mounts your working tree for hot reloading and loads default credentials from `infra/docker/.env.docker`. Containers build automatically on the first run.
+   <br />
+   _Prefer a single command?_ Run the helper script below (it auto-detects whether `docker compose` or `docker-compose` is available and builds the entire stack):
+   ```bash
+   ./scripts/bootstrap-docker.sh
+   ```
 3. **Access the services**
    - Web dashboard → http://localhost:3000
    - API gateway → http://localhost:4000 (health: `/health`)

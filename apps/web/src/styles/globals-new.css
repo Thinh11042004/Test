@@ -1,0 +1,26 @@
+/* HRMS Application Styles - Simplified for Tailwind v4 */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Simplified base styles without @apply */
+* {
+  border-color: #e2e8f0;
+}
+
+body {
+  background: linear-gradient(135deg, #f8fafc 0%, rgba(239, 246, 255, 0.3) 50%, rgba(250, 245, 255, 0.2) 100%);
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+/* Component styles can use Tailwind utilities in markup instead of @apply */

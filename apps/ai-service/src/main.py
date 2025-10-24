@@ -22,6 +22,27 @@ app.add_middleware(
 )
 
 
+# Health Check Endpoint
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for Docker and monitoring"""
+    return {
+        "status": "healthy",
+        "service": "ai-service",
+        "version": "2.0.0"
+    }
+
+
+@app.get("/")
+async def root():
+    """Root endpoint"""
+    return {
+        "service": "AI Service - HRMS",
+        "version": "2.0.0",
+        "status": "running"
+    }
+
+
 class CandidateSummaryRequest(BaseModel):
     candidate: Dict[str, Any]
     job: Optional[Dict[str, Any]] = None

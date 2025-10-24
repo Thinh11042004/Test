@@ -1,4 +1,3 @@
-<<<<<<< ours
 const {
   ApplicationStatus,
   CandidateSource,
@@ -463,16 +462,3 @@ module.exports = {
   matchCandidateToJob,
   getJobAnalytics
 };
-=======
-const interviewRepository = require('../repositories/interviewRepository');
-const { serializeInterview } = require('../utils/serializers');
-
-const listInterviews = async () => {
-  const interviews = await interviewRepository.listUpcoming({ startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) });
-  return interviews.map(serializeInterview);
-};
-
-module.exports = {
-  listInterviews
-};
->>>>>>> theirs
